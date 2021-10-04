@@ -8,66 +8,73 @@ Created on Sat Oct  2 20:41:48 2021
 """
 
 import torch
-torch.cuda.empty_cache()
 import torch.nn as nn
 
 
 class VGG(nn.Module):
+    """Flexible VGG network."""
 
-    def __init__(self):
+    def __init__(self, in_channels, conv_blocks, fc_layers, out_channels):
+        """Build custom convulutional blocks and fully connected layers."""
         super(VGG, self).__init__()
 
-        kernel_size = 3
-        self.relu = nn.ReLU()
-        self.max_pool = nn.MaxPool2d(kernel_size=kernel_size, stride=2)
-        self.softmax = nn.Softmax()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.conv_blocks = self.make_conv_blocks(conv_blocks)
+        self.fc_layers = self.make_fc_layers(fc_layers)
 
-        self.conv_64 = nn.Conv2d(in_channels=3, out_channels=64,
-                                  kernel_size=kernel_size, stride=1, padding=1)
-        self.conv_128 = nn.Conv2d(in_channels=64, out_channels=128,
-                                  kernel_size=kernel_size, stride=1, padding=1)
-        self.conv_256a = nn.Conv2d(in_channels=128, out_channels=256,
-                                   kernel_size=kernel_size, stride=1, padding=1)
-        self.conv_256b = nn.Conv2d(in_channels=256, out_channels=256,
-                                   kernel_size=kernel_size, stride=1, padding=1)
-        self.conv_512a = nn.Conv2d(in_channels=256, out_channels=512,
-                                   kernel_size=kernel_size, stride=1, padding=1)
-        self.conv_512b = nn.Conv2d(in_channels=512, out_channels=512,
-                                   kernel_size=kernel_size, stride=1, padding=1)
-        self.conv_512c = nn.Conv2d(in_channels=512, out_channels=512,
-                                   kernel_size=kernel_size, stride=1, padding=1)
-        self.conv_512d = nn.Conv2d(in_channels=512, out_channels=512,
-                                   kernel_size=kernel_size, stride=1, padding=1)
-        self.fc4096a = nn.Linear(in_features=512, out_features=4096)
-        self.fc4096b = nn.Linear(in_features=4096, out_features=4096)
-        self.fc1000 = nn.Linear(in_features=4096, out_features=1000)
+    def make_conv_blocks(self, specs):
+        """Make the custom convolutional blocks."""
+        conv = []
+        krnl = (3, 3)
+        strd = (1, 1)
+        pdd = (1, 1)
+        strd_pool = (2, 2)
+        krnl_pool = (2, 2)
+        in_channels = self.in_channels
+
+        for spec in specs:
+
+            if isinstance(spec, int):
+                conv += [nn.Conv2d(in_channels=in_channels, out_channels=spec,
+                                   kernel_size=krnl, stride=strd, padding=pdd),
+                         nn.BatchNorm2d(spec),
+                         nn.ReLU()]
+
+            elif spec == 'M':
+                conv += [nn.MaxPool2d(kernel_size=krnl_pool, stride=strd_pool)]
+
+            in_channels = spec
+
+        return nn.Sequential(*conv)
+
+    def make_fc_layers(self, specs):
+        pass
 
     def forward(self, x):
-        x = self.max_pool(self.relu(self.conv_64(x)))
-        x = self.max_pool(self.relu(self.conv_128(x)))
-        x = self.relu(self.conv_256a(x))
-        x = self.max_pool(self.relu(self.conv_256b(x)))
-        x = self.relu(self.conv_512a(x))
-        x = self.max_pool(self.relu(self.conv_512b(x)))
-        x = self.relu(self.conv_512c(x))
-        x = self.max_pool(self.relu(self.conv_512d(x)))
-        x = self.relu(self.fc4096a(x))
-        x = self.relu(self.fc4096b(x))
-        x = self.fc1000(x)
-        x = self.softmax(x)
         return x
 
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-x_in = torch.randn((16, 3, 224, 224), device=device)
-model = VGG().to(device)
-x_out = model(x_in)
+if __name__ == '__main__':
 
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    torch.cuda.empty_cache()
 
+    conv = [64, 64, 'M',
+            128, 128, 'M',
+            256, 256, 256, 'M',
+            512, 512, 512, 'M',
+            512, 512, 512, 'M']
 
+    fc = [4096, 4096, 1000]
 
+    num_samples = 2**4
+    in_channels = 3
+    size = 224
+    out_channels = fc[-1]
 
+    x_in = torch.randn((num_samples, in_channels, size, size), device=device)
+    model = VGG(in_channels, conv, fc, out_channels).to(device)
+    x_out = model(x_in)
 
-
-
-
+    assert x_out.shape == [0, 1]
