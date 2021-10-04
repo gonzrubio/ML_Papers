@@ -7,6 +7,7 @@ Created on Sat Oct  2 20:41:48 2021
 @author: gonzr
 """
 
+
 import torch
 import torch.nn as nn
 
@@ -19,6 +20,7 @@ class VGG(nn.Module):
         super(VGG, self).__init__()
 
         self.in_channels = in_channels
+        self.in_features = conv_blocks[-2]
         self.out_channels = out_channels
         self.conv_blocks = self.make_conv_blocks(conv_blocks)
         self.fc_layers = self.make_fc_layers(fc_layers)
@@ -40,18 +42,36 @@ class VGG(nn.Module):
                                    kernel_size=krnl, stride=strd, padding=pdd),
                          nn.BatchNorm2d(spec),
                          nn.ReLU()]
+                in_channels = spec
 
             elif spec == 'M':
                 conv += [nn.MaxPool2d(kernel_size=krnl_pool, stride=strd_pool)]
 
-            in_channels = spec
-
         return nn.Sequential(*conv)
 
     def make_fc_layers(self, specs):
-        pass
+        """Make the custom fully connected layers."""
+        fc = []
+        in_features = self.in_features*7*7   # 7x7 after 5 max pool on 224x224
+
+        for spec in specs:
+
+            if spec != self.out_channels:
+                fc += [nn.Linear(in_features=in_features, out_features=spec),
+                       nn.ReLU(),
+                       nn.Dropout(p=0.5)]
+            else:
+                fc += [nn.Linear(in_features=in_features, out_features=spec)]
+
+            in_features = spec
+
+        return nn.Sequential(*fc)
 
     def forward(self, x):
+        """Forward pass through conv and fc layers."""
+        x = self.conv_blocks(x)
+        x = x.reshape(x.shape[0], -1)
+        x = self.fc_layers(x)
         return x
 
 
@@ -71,10 +91,10 @@ if __name__ == '__main__':
     num_samples = 2**4
     in_channels = 3
     size = 224
-    out_channels = fc[-1]
+    num_classes = fc[-1]
 
     x_in = torch.randn((num_samples, in_channels, size, size), device=device)
-    model = VGG(in_channels, conv, fc, out_channels).to(device)
+    model = VGG(in_channels, conv, fc, num_classes).to(device)
     x_out = model(x_in)
 
-    assert x_out.shape == [0, 1]
+    assert x_out.shape == torch.Size([num_samples, num_classes])
