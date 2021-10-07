@@ -22,6 +22,45 @@ class ConvBlock(nn.Module):
         return self.relu(self.batch_norm(self.conv(x)))
 
 
+class InceptionBLock(nn.Module):
+    def __init__(self, c_in, out_1, red_3, out_3, red_5, out_5, out_1p):
+        super(InceptionBLock, self).__init__()
+
+        self.branch_1x1 = nn.Sequential(
+            ConvBlock(in_channels=c_in, out_channels=out_1,
+                      kernel_size=1, padding='same')
+            )
+
+        self.branch_3x3 = nn.Sequential(
+            ConvBlock(in_channels=c_in, out_channels=red_3,
+                      kernel_size=1, padding='same'),
+            ConvBlock(in_channels=red_3, out_channels=out_3,
+                      kernel_size=3, padding='same')
+            )
+
+        self.branch_5x5 = nn.Sequential(
+            ConvBlock(in_channels=c_in, out_channels=red_5,
+                      kernel_size=1, padding='same'),
+            ConvBlock(in_channels=red_5, out_channels=out_5,
+                      kernel_size=5, padding='same')
+            )
+
+        self.branch_pool = nn.Sequential(
+            nn.MaxPool2d(kernel_size=3, stride=1, padding=1),
+            ConvBlock(in_channels=c_in, out_channels=out_1p,
+                      kernel_size=1, padding='same')
+            )
+
+    def forward(self, x):
+        x = torch.cat(
+            (self.branch_1x1(x),
+             self.branch_3x3(x),
+             self.branch_5x5(x),
+             self.branch_pool(x)),
+            dim=1)
+        return x
+
+
 class GoogLeNet(nn.Module):
     pass
 
@@ -37,7 +76,10 @@ if __name__ == "__main__":
     num_classes = 1000
 
     x_in = torch.randn((num_samples, in_channels, size, size), device=device)
-    model = GoogLeNet(in_channels, num_classes).to(device)
-    x_out = model(x_in)
+    inception = InceptionBLock(3, 64, 96, 128, 16, 32, 32).to(device)
+    x_out = inception(x_in)
 
-    assert x_out.shape == torch.Size([num_samples, num_classes])
+    # model = GoogLeNet(in_channels, num_classes).to(device)
+    # x_out = model(x_in)
+
+    # assert x_out.shape == torch.Size([num_samples, num_classes])
