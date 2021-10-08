@@ -66,29 +66,65 @@ class GoogLeNet(nn.Module):
         super(GoogLeNet, self).__init__()
 
         self.conv1 = ConvBlock(in_channels=in_channels, out_channels=64,
-                               kernel_size=3, stride=2, padding=3)
-        self.max_pool1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-
+                               kernel_size=7, stride=2, padding=3)
         self.conv2 = nn.Sequential(
             ConvBlock(in_channels=64, out_channels=64,
                       kernel_size=1, stride=1, padding=0),
             ConvBlock(in_channels=64, out_channels=192,
-                      kernel_size=3, padding='same'),
-            )
-        self.max_pool2 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+                      kernel_size=3, padding='same'))
+        self.inception_3a = InceptionBLock(c_in=192, out_1=64,
+                                           red_3=96, out_3=128,
+                                           red_5=16, out_5=32,
+                                           out_1p=32)
+        self.inception_3b = InceptionBLock(c_in=256, out_1=128,
+                                           red_3=128, out_3=192,
+                                           red_5=32, out_5=96,
+                                           out_1p=64)
+        self.inception_4a = InceptionBLock(c_in=480, out_1=192,
+                                           red_3=96, out_3=208,
+                                           red_5=16, out_5=48,
+                                           out_1p=64)
+        self.inception_4b = InceptionBLock(c_in=512, out_1=160,
+                                           red_3=112, out_3=224,
+                                           red_5=24, out_5=64,
+                                           out_1p=64)
+        self.inception_4c = InceptionBLock(c_in=512, out_1=128,
+                                           red_3=128, out_3=256,
+                                           red_5=24, out_5=64,
+                                           out_1p=64)
+        self.inception_4d = InceptionBLock(c_in=512, out_1=112,
+                                           red_3=144, out_3=288,
+                                           red_5=32, out_5=64,
+                                           out_1p=64)
+        self.inception_4e = InceptionBLock(c_in=528, out_1=256,
+                                           red_3=160, out_3=320,
+                                           red_5=32, out_5=128,
+                                           out_1p=128)
+        self.inception_5a = InceptionBLock(c_in=832, out_1=256,
+                                           red_3=160, out_3=320,
+                                           red_5=32, out_5=128,
+                                           out_1p=128)
+        self.inception_5b = InceptionBLock(c_in=832, out_1=384,
+                                           red_3=192, out_3=384,
+                                           red_5=48, out_5=128,
+                                           out_1p=128)
+        self.linear = nn.Linear(in_features=1024, out_features=out_channels)
 
-        self.inception_a = InceptionBLock(c_in=192, out_1=64,
-                                          red_3=96, out_3=128,
-                                          red_5=16, out_5=32,
-                                          out_1p=32)
-        self.inception_b = InceptionBLock(c_in=256, out_1=128,
-                                          red_3=128, out_3=192,
-                                          red_5=32, out_5=96,
-                                          out_1p=64)
-        self.max_pool3 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.max_pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.avg_pool = nn.AvgPool2d(kernel_size=7, stride=1, padding=0)
+        self.drop_out = nn.Dropout(p=0.4)
 
     def forward(self, x):
-        pass
+        x = self.max_pool(self.conv1(x))
+        x = self.max_pool(self.conv2(x))
+        x = self.max_pool(self.inception_3b(self.inception_3a(x)))
+        x = self.inception_4c((self.inception_4b(self.inception_4a(x))))
+        x = self.max_pool(self.inception_4e(self.inception_4d(x)))
+        x = self.avg_pool(self.inception_5b(self.inception_5a(x)))
+        x = x.reshape(x.shape[0], -1)
+        x = self.drop_out(x)
+        x = self.linear(x)
+        return x
 
 
 if __name__ == "__main__":
@@ -102,10 +138,9 @@ if __name__ == "__main__":
     num_classes = 1000
 
     x_in = torch.randn((num_samples, in_channels, size, size), device=device)
-    # inception = InceptionBLock(3, 64, 96, 128, 16, 32, 32).to(device)
-    # x_out = inception(x_in)
-
     model = GoogLeNet(in_channels, num_classes).to(device)
     x_out = model(x_in)
 
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Number of parameters for ligand network: {total_params:,}")
     assert x_out.shape == torch.Size([num_samples, num_classes])
