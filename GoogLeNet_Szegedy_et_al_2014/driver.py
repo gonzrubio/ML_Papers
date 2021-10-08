@@ -61,8 +61,28 @@ class InceptionBLock(nn.Module):
         return x
 
 
+class InceptionAux(nn.Module):
+    def __init__(self, in_channels, num_classes, size):
+        super(InceptionAux, self).__init__()
+        self.avg_pool = nn.AvgPool2d(kernel_size=5, stride=1, padding=2)
+        self.conv = ConvBlock(in_channels=in_channels, out_channels=32,
+                              kernel_size=1, padding='same')
+        self.linear1 = nn.Linear(in_features=32*size**2, out_features=512)
+        self.relu = nn.ReLU()
+        self.drop_out = nn.Dropout(p=0.4)
+        self.linear2 = nn.Linear(in_features=512, out_features=num_classes)
+
+    def forward(self, x):
+        x = self.avg_pool(x)
+        x = self.conv(x)
+        x = x.reshape(x.shape[0], -1)
+        x = self.drop_out(self.relu(self.linear1(x)))
+        x = self.linear2(x)
+        return x
+
+
 class GoogLeNet(nn.Module):
-    def __init__(self, in_channels=3, out_channels=1000):
+    def __init__(self, in_channels=3, out_channels=1000, aux=False):
         super(GoogLeNet, self).__init__()
 
         self.conv1 = ConvBlock(in_channels=in_channels, out_channels=64,
@@ -88,6 +108,7 @@ class GoogLeNet(nn.Module):
                                            red_3=112, out_3=224,
                                            red_5=24, out_5=64,
                                            out_1p=64)
+
         self.inception_4c = InceptionBLock(c_in=512, out_1=128,
                                            red_3=128, out_3=256,
                                            red_5=24, out_5=64,
@@ -113,18 +134,32 @@ class GoogLeNet(nn.Module):
         self.max_pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.avg_pool = nn.AvgPool2d(kernel_size=7, stride=1, padding=0)
         self.drop_out = nn.Dropout(p=0.4)
+        self.aux = aux
+        if self.aux:
+            self.aux1 = InceptionAux(in_channels=480,
+                                     num_classes=num_classes,
+                                     size=14)
+            self.aux2 = InceptionAux(in_channels=832,
+                                     num_classes=num_classes,
+                                     size=7)
 
     def forward(self, x):
         x = self.max_pool(self.conv1(x))
         x = self.max_pool(self.conv2(x))
         x = self.max_pool(self.inception_3b(self.inception_3a(x)))
+        # Auxiliary Softmax classifier 1
+        if self.aux:
+            aux1 = self.aux1(x)
         x = self.inception_4c((self.inception_4b(self.inception_4a(x))))
         x = self.max_pool(self.inception_4e(self.inception_4d(x)))
+        # Auxiliary Softmax classifier 2
+        if self.aux:
+            aux2 = self.aux2(x)
         x = self.avg_pool(self.inception_5b(self.inception_5a(x)))
         x = x.reshape(x.shape[0], -1)
         x = self.drop_out(x)
         x = self.linear(x)
-        return x
+        return aux1, aux2, x if self.aux else x
 
 
 if __name__ == "__main__":
@@ -138,7 +173,7 @@ if __name__ == "__main__":
     num_classes = 1000
 
     x_in = torch.randn((num_samples, in_channels, size, size), device=device)
-    model = GoogLeNet(in_channels, num_classes).to(device)
+    model = GoogLeNet(in_channels, num_classes, aux=True).to(device)
     x_out = model(x_in)
 
     total_params = sum(p.numel() for p in model.parameters())
