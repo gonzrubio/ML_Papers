@@ -62,7 +62,33 @@ class InceptionBLock(nn.Module):
 
 
 class GoogLeNet(nn.Module):
-    pass
+    def __init__(self, in_channels=3, out_channels=1000):
+        super(GoogLeNet, self).__init__()
+
+        self.conv1 = ConvBlock(in_channels=in_channels, out_channels=64,
+                               kernel_size=3, stride=2, padding=3)
+        self.max_pool1 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+
+        self.conv2 = nn.Sequential(
+            ConvBlock(in_channels=64, out_channels=64,
+                      kernel_size=1, stride=1, padding=0),
+            ConvBlock(in_channels=64, out_channels=192,
+                      kernel_size=3, padding='same'),
+            )
+        self.max_pool2 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+
+        self.inception_a = InceptionBLock(c_in=192, out_1=64,
+                                          red_3=96, out_3=128,
+                                          red_5=16, out_5=32,
+                                          out_1p=32)
+        self.inception_b = InceptionBLock(c_in=256, out_1=128,
+                                          red_3=128, out_3=192,
+                                          red_5=32, out_5=96,
+                                          out_1p=64)
+        self.max_pool3 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+
+    def forward(self, x):
+        pass
 
 
 if __name__ == "__main__":
@@ -76,10 +102,10 @@ if __name__ == "__main__":
     num_classes = 1000
 
     x_in = torch.randn((num_samples, in_channels, size, size), device=device)
-    inception = InceptionBLock(3, 64, 96, 128, 16, 32, 32).to(device)
-    x_out = inception(x_in)
+    # inception = InceptionBLock(3, 64, 96, 128, 16, 32, 32).to(device)
+    # x_out = inception(x_in)
 
-    # model = GoogLeNet(in_channels, num_classes).to(device)
-    # x_out = model(x_in)
+    model = GoogLeNet(in_channels, num_classes).to(device)
+    x_out = model(x_in)
 
-    # assert x_out.shape == torch.Size([num_samples, num_classes])
+    assert x_out.shape == torch.Size([num_samples, num_classes])
