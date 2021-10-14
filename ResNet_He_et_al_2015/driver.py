@@ -47,15 +47,8 @@ class ResBlock(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, in_channels=3, out_channels=1000, num_layers=50):
-        assert num_layers in [50, 101, 152]
+    def __init__(self, in_channels=3, out_channels=1000, num_layers=[3, 4, 6, 3]):
         super(ResNet, self).__init__()
-        if num_layers == 50:
-            num_layers = [3, 4, 6, 3]
-        elif num_layers == 101:
-            num_layers = [3, 4, 23, 3]
-        else:
-            num_layers = [3, 8, 36, 3]
 
         self.conv1 = ConvBlock(in_channels=in_channels, out_channels=64,
                                kernel_size=7, stride=2, padding=3)
@@ -101,6 +94,18 @@ class ResNet(nn.Module):
         return x
 
 
+def ResNet50(in_channels=3, out_channels=1000):
+    return ResNet(in_channels, out_channels, num_layers=[3, 4, 6, 3])
+
+
+def ResNet101(in_channels=3, out_channels=1000):
+    return ResNet(in_channels, out_channels, num_layers=[3, 4, 23, 3])
+
+
+def ResNet152(in_channels=3, out_channels=1000):
+    return ResNet(in_channels, out_channels, num_layers=[3, 8, 36, 3])
+
+
 if __name__ == "__main__":
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -110,12 +115,28 @@ if __name__ == "__main__":
     in_channels = 3
     size = 224
     num_classes = 1000
-
     x_in = torch.randn((num_samples, in_channels, size, size), device=device)
-    model = ResNet(in_channels, num_classes, num_layers=50).to(device)
+
+    model = ResNet50(in_channels, num_classes).to(device)
     x_out = model(x_in)
 
     total_params = sum(p.numel() for p in model.parameters())
-    print(f"Number of parameters for ligand network: {total_params:,}")
+    print(f"Number of parameters for ResNet50: {total_params:,}")
+
+    assert x_out.shape == torch.Size([num_samples, num_classes])
+
+    model = ResNet101(in_channels, num_classes).to(device)
+    x_out = model(x_in)
+
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Number of parameters for ResNet101: {total_params:,}")
+
+    assert x_out.shape == torch.Size([num_samples, num_classes])
+
+    model = ResNet152(in_channels, num_classes).to(device)
+    x_out = model(x_in)
+
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Number of parameters for ResNet152: {total_params:,}")
 
     assert x_out.shape == torch.Size([num_samples, num_classes])
