@@ -1,6 +1,6 @@
-"""
+"""A Neural Algorithm of Artistic Style
 
-Paper: 
+Paper: https://arxiv.org/abs/1508.06576
 
 Created on Wed Oct 20 13:38:44 2021
 
