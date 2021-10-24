@@ -14,7 +14,9 @@ import torch.optim as optim
 
 
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from torchvision.utils import make_grid
 from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms, datasets
 
 
@@ -76,13 +78,23 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.generate = nn.Sequential(
             nn.Linear(in_features=in_features, out_features=in_features),
+            nn.BatchNorm1d(in_features),
             nn.ReLU(),
             nn.Linear(in_features=in_features, out_features=in_features),
+            nn.BatchNorm1d(in_features),
+            nn.ReLU(),
+            nn.Linear(in_features=in_features, out_features=in_features),
+            nn.BatchNorm1d(in_features),
+            nn.ReLU(),
+            nn.Linear(in_features=in_features, out_features=in_features),
+            nn.BatchNorm1d(in_features),
             nn.ReLU(),
             nn.Linear(in_features=in_features, out_features=img_size),
+            nn.BatchNorm1d(img_size),
             nn.ReLU(),
             nn.Linear(in_features=img_size, out_features=img_size),
-            nn.Tanh()    # To ake sure output range is between +-1
+            nn.BatchNorm1d(img_size),
+            nn.Tanh(),  # normalize inputs to [-1, 1] so make outputs [-1, 1]
             )
 
     def forward(self, x):
@@ -92,15 +104,26 @@ class Generator(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self, img_size=28*28):
         super(Discriminator, self).__init__()
-        dropout_rate = 0.5
+        dropout_rate = 0.2
         self.classify = nn.Sequential(
             nn.Linear(in_features=img_size, out_features=img_size),
+            nn.BatchNorm1d(img_size),
+            nn.Dropout(dropout_rate),
+            nn.ReLU(),
+            nn.Linear(in_features=img_size, out_features=img_size),
+            nn.BatchNorm1d(img_size),
+            nn.Dropout(dropout_rate),
+            nn.ReLU(),
+            nn.Linear(in_features=img_size, out_features=img_size),
+            nn.BatchNorm1d(img_size),
             nn.Dropout(dropout_rate),
             nn.ReLU(),
             nn.Linear(in_features=img_size, out_features=2*img_size),
+            nn.BatchNorm1d(2*img_size),
             nn.Dropout(dropout_rate),
             nn.ReLU(),
             nn.Linear(in_features=2*img_size, out_features=2*img_size),
+            nn.BatchNorm1d(2*img_size),
             nn.Dropout(dropout_rate),
             nn.ReLU(),
             nn.Linear(in_features=2*img_size, out_features=1),
@@ -126,11 +149,11 @@ print(f'Number of parameters: {total_params:,}')
 
 z_dim = 2 ** 8              # Noise vector
 img_dim = 1 * 28 * 28       # [C, H, W]
-batch_size = 2 ** 6
+batch_size = 2 ** 11
 
 loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-epochs = 1000
+epochs = 50
 lr = 3e-4
 
 optim_generator = optim.Adam(generator.parameters(), lr=lr)
@@ -146,11 +169,15 @@ bce = nn.BCELoss()
 #                                                                            #
 ##############################################################################
 
+writer_fake = SummaryWriter("logs/fake")
+writer_real = SummaryWriter("logs/real")
+step = 0
+
 for epoch in range(epochs):
     for batch_idx, (x, label) in enumerate(loader):
 
-        x = x.reshape(batch_size, -1).to(device)
-        noise = torch.randn((batch_size, z_dim), device=device)
+        x = x.reshape(-1, img_dim).to(device)
+        noise = torch.randn((x.shape[0], z_dim), device=device)
 
         # Maximize Discriminator
         z = generator(noise)
@@ -174,9 +201,20 @@ for epoch in range(epochs):
         optim_generator.step()
         sched_generator.step()
 
-    # print(f'loss (MAE): {loss_epoch:.4f}, validation (MAE): {validation:.4f}')
+        if batch_idx % 50 == 0:
 
+            print(f"{epoch}.{batch_idx} {loss_D: .3e} {loss_G: .3e}")
 
+            generator.eval()
+            with torch.no_grad():
+                fake = generator(noise).reshape(-1, 1, 28, 28)
+                x = x.reshape(-1, 1, 28, 28)
+                img_grid_fake = make_grid(fake, normalize=True)
+                img_grid_real = make_grid(x, normalize=True)
 
-
-
+                writer_fake.add_image("Mnist Fake Images",
+                                      img_grid_fake, global_step=step)
+                writer_real.add_image("Mnist Real Images",
+                                      img_grid_real, global_step=step)
+                step += 1
+            generator.train()
