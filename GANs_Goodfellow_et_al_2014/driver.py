@@ -31,22 +31,24 @@ device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 # Use standard FashionMNIST dataset
 train_dataset = datasets.FashionMNIST(
-    root='./data/FashionMNIST',
+    root='./data/train',
     train=True,
     download=True,
     transform=transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(0.2862, 0.3204),
+        transforms.Normalize(0.2862, 0.3204),  # Fashion-MNIST
+        # transforms.Normalize(0.1530, 0.3042)  # MNIST
     ])
 )
 
 test_dataset = datasets.FashionMNIST(
-    root='./data/FashionMNIST',
+    root='./data/test/',
     train=False,
     download=True,
     transform=transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(0.2862, 0.3204),
+        # transforms.Normalize(0.1530, 0.3042)  # MNIST
+        transforms.Normalize(0.2862, 0.3204),  # Fashion-MNIST
     ])
 )
 
@@ -73,73 +75,57 @@ dataset = ConcatDataset([train_dataset, test_dataset])
 #                                                                            #
 ##############################################################################
 
-class Generator(nn.Module):
-    def __init__(self, in_features=256, img_size=28*28):
-        super(Generator, self).__init__()
-        self.generate = nn.Sequential(
-            nn.Linear(in_features=in_features, out_features=in_features),
-            nn.BatchNorm1d(in_features),
-            nn.ReLU(),
-            nn.Linear(in_features=in_features, out_features=in_features),
-            nn.BatchNorm1d(in_features),
-            nn.ReLU(),
-            nn.Linear(in_features=in_features, out_features=in_features),
-            nn.BatchNorm1d(in_features),
-            nn.ReLU(),
-            nn.Linear(in_features=in_features, out_features=in_features),
-            nn.BatchNorm1d(in_features),
-            nn.ReLU(),
-            nn.Linear(in_features=in_features, out_features=img_size),
-            nn.BatchNorm1d(img_size),
-            nn.ReLU(),
-            nn.Linear(in_features=img_size, out_features=img_size),
-            nn.BatchNorm1d(img_size),
-            nn.Tanh(),  # normalize inputs to [-1, 1] so make outputs [-1, 1]
-            )
-
-    def forward(self, x):
-        return self.generate(x)
-
-
 class Discriminator(nn.Module):
-    def __init__(self, img_size=28*28):
-        super(Discriminator, self).__init__()
-        dropout_rate = 0.2
-        self.classify = nn.Sequential(
-            nn.Linear(in_features=img_size, out_features=img_size),
-            nn.BatchNorm1d(img_size),
-            nn.Dropout(dropout_rate),
-            nn.ReLU(),
-            nn.Linear(in_features=img_size, out_features=img_size),
-            nn.BatchNorm1d(img_size),
-            nn.Dropout(dropout_rate),
-            nn.ReLU(),
-            nn.Linear(in_features=img_size, out_features=img_size),
-            nn.BatchNorm1d(img_size),
-            nn.Dropout(dropout_rate),
-            nn.ReLU(),
-            nn.Linear(in_features=img_size, out_features=2*img_size),
-            nn.BatchNorm1d(2*img_size),
-            nn.Dropout(dropout_rate),
-            nn.ReLU(),
-            nn.Linear(in_features=2*img_size, out_features=2*img_size),
-            nn.BatchNorm1d(2*img_size),
-            nn.Dropout(dropout_rate),
-            nn.ReLU(),
-            nn.Linear(in_features=2*img_size, out_features=1),
-            nn.Sigmoid()   # To output a probability
-            )
+    def __init__(self, in_features):
+        super().__init__()
+        self.disc = nn.Sequential(
+            nn.Linear(in_features, 512),
+            nn.BatchNorm1d(512),
+            nn.Dropout(0.2),
+            nn.LeakyReLU(0.01),
+            nn.Linear(512, 512),
+            nn.BatchNorm1d(512),
+            nn.Dropout(0.2),
+            nn.LeakyReLU(0.01),
+            nn.Linear(512, 128),
+            nn.BatchNorm1d(128),
+            nn.Dropout(0.2),
+            nn.LeakyReLU(0.01),
+            nn.Linear(128, 1),
+            nn.Sigmoid(),
+        )
 
     def forward(self, x):
-        return self.classify(x)
+        return self.disc(x)
 
 
-generator = Generator().to(device)
-discriminator = Discriminator().to(device)
+class Generator(nn.Module):
+    def __init__(self, z_dim, img_dim):
+        super().__init__()
+        self.gen = nn.Sequential(
+            nn.Linear(z_dim, 256),
+            nn.BatchNorm1d(256),
+            nn.Dropout(0.2),
+            nn.LeakyReLU(0.01),
+            nn.Linear(256, 512),
+            nn.BatchNorm1d(512),
+            nn.Dropout(0.2),
+            nn.LeakyReLU(0.01),
+            nn.Linear(512, 512),
+            nn.BatchNorm1d(512),
+            nn.Dropout(0.2),
+            nn.LeakyReLU(0.01),
+            nn.Linear(512, 256),
+            nn.BatchNorm1d(256),
+            nn.Dropout(0.2),
+            nn.LeakyReLU(0.01),
+            nn.Linear(256, img_dim),
+            nn.Tanh(),  # normalize inputs to [-1, 1] so make outputs [-1, 1]
+        )
 
-total_params = sum(p.numel() for p in generator.parameters())
-total_params += sum(p.numel() for p in discriminator.parameters())
-print(f'Number of parameters: {total_params:,}')
+    def forward(self, x):
+        return self.gen(x)
+
 
 ##############################################################################
 #                                                                            #
@@ -147,19 +133,28 @@ print(f'Number of parameters: {total_params:,}')
 #                                                                            #
 ##############################################################################
 
-z_dim = 2 ** 8              # Noise vector
+z_dim = 2 ** 9              # Noise vector
 img_dim = 1 * 28 * 28       # [C, H, W]
-batch_size = 2 ** 11
+batch_size = 2 ** 10
 
+generator = Generator(z_dim, img_dim).to(device)
+discriminator = Discriminator(img_dim).to(device)
+
+total_params = sum(p.numel() for p in generator.parameters())
+total_params += sum(p.numel() for p in discriminator.parameters())
+print(f'Number of parameters: {total_params:,}')
+
+fixed_noise = torch.randn((batch_size, z_dim), device=device)
 loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-epochs = 50
-lr = 3e-4
+epochs = 100
+lr_G = 3e-4
+lr_D = 3e-5
 
-optim_generator = optim.Adam(generator.parameters(), lr=lr)
-optim_discriminator = optim.Adam(discriminator.parameters(), lr=lr)
-sched_generator = CosineAnnealingLR(optim_generator, T_max=20, eta_min=0)
-sched_discriminator = CosineAnnealingLR(optim_discriminator, T_max=20, eta_min=0)
+optim_G = optim.Adam(generator.parameters(), lr=lr_G)
+optim_D = optim.Adam(discriminator.parameters(), lr=lr_D)
+sched_G = CosineAnnealingLR(optim_G, T_max=20, eta_min=0)
+sched_D = CosineAnnealingLR(optim_D, T_max=20, eta_min=0)
 bce = nn.BCELoss()
 
 
@@ -169,52 +164,45 @@ bce = nn.BCELoss()
 #                                                                            #
 ##############################################################################
 
-writer_fake = SummaryWriter("logs/fake")
-writer_real = SummaryWriter("logs/real")
+writer = SummaryWriter("logs/real")
 step = 0
 
 for epoch in range(epochs):
-    for batch_idx, (x, label) in enumerate(loader):
+    for batch_idx, (real, label) in enumerate(loader):
 
-        x = x.reshape(-1, img_dim).to(device)
-        noise = torch.randn((x.shape[0], z_dim), device=device)
+        real = real.reshape(-1, img_dim).to(device)
+        fake = generator(torch.randn((real.shape[0], z_dim), device=device))
 
         # Maximize Discriminator
-        z = generator(noise)
-        Dx = discriminator(x)
-        Dz = discriminator(z)
-        loss_Dx = bce(Dx, torch.ones_like(Dx))
-        loss_Dz = bce(Dz, torch.zeros_like(Dz))
-        loss_D = 0.5 * (loss_Dx + loss_Dz)
+        D_real = discriminator(real)
+        D_fake = discriminator(fake)
+        loss_D_real = bce(D_real, torch.ones_like(D_real))
+        loss_D_fake = bce(D_fake, torch.zeros_like(D_fake))
+        loss_D = 0.5 * (loss_D_real + loss_D_fake)
 
-        generator.zero_grad(set_to_none=True)
+        discriminator.zero_grad(set_to_none=True)
         loss_D.backward(retain_graph=True)
-        optim_discriminator.step()
-        sched_discriminator.step()
+        optim_D.step()
+        sched_D.step()
 
         # Minimize Generator
-        Dz = discriminator(z)
-        loss_G = bce(Dz, torch.ones_like(Dz))
+        # D_fake = discriminator(fake)
+        loss_G = bce(D_fake, torch.ones_like(D_fake))
 
         generator.zero_grad(set_to_none=True)
         loss_G.backward(retain_graph=True)
-        optim_generator.step()
-        sched_generator.step()
+        optim_G.step()
+        sched_G.step()
 
-        if batch_idx % 50 == 0:
+        if batch_idx % 25 == 0:
 
             print(f"{epoch}.{batch_idx} {loss_D: .3e} {loss_G: .3e}")
 
             generator.eval()
             with torch.no_grad():
+                noise = torch.randn((batch_size, z_dim), device=device)
                 fake = generator(noise).reshape(-1, 1, 28, 28)
-                x = x.reshape(-1, 1, 28, 28)
-                img_grid_fake = make_grid(fake, normalize=True)
-                img_grid_real = make_grid(x, normalize=True)
-
-                writer_fake.add_image("Mnist Fake Images",
-                                      img_grid_fake, global_step=step)
-                writer_real.add_image("Mnist Real Images",
-                                      img_grid_real, global_step=step)
+                img_grid = make_grid(fake, normalize=True)
+                writer.add_image("Fake Images", img_grid, global_step=step)
                 step += 1
             generator.train()
