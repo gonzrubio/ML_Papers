@@ -10,6 +10,9 @@ import torch
 import torch.nn as nn
 
 
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
+
+
 class Discriminator(nn.Module):
     def __init__(self):
         super().__init__()
@@ -22,6 +25,7 @@ class Discriminator(nn.Module):
             nn.Conv2d(in_channels=1024, out_channels=1, kernel_size=4),
             nn.Sigmoid()
             )
+        self.init_weights(mean=0.0, std=0.02)
 
     def make_conv(self, in_channels, out_channels, batch_norm=True):
 
@@ -32,6 +36,12 @@ class Discriminator(nn.Module):
         layer.append(nn.LeakyReLU(0.2))
 
         return nn.Sequential(*layer)
+
+    def init_weights(self, mean=0.0, std=0.02):
+        for module in self.modules():
+            if isinstance(module,
+                          (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
+                nn.init.normal_(module.weight.data, mean=mean, std=std)
 
     def forward(self, x):
         return self.disc(x).view(-1, 1)
@@ -53,6 +63,7 @@ class Generator(nn.Module):
                                kernel_size=4, stride=2, padding=1),
             nn.Tanh()
         )
+        self.init_weights(mean=0.0, std=0.02)
 
     def make_upsample(self, in_channels, out_channels, bn=True, **kwargs):
 
@@ -63,6 +74,12 @@ class Generator(nn.Module):
 
         return nn.Sequential(*layer)
 
+    def init_weights(self, mean=0.0, std=0.02):
+        for module in self.modules():
+            if isinstance(module,
+                          (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
+                nn.init.normal_(module.weight.data, mean=mean, std=std)
+
     def forward(self, x):
         return self.gen(x)
 
@@ -70,15 +87,8 @@ class Generator(nn.Module):
 if __name__ == '__main__':
     x = torch.randn((64, 3, 64, 64))
     discriminator = Discriminator()
-    discriminator(x).shape
+    D_x = discriminator(x)
 
     z = torch.randn((64, 100, 1, 1))
     generator = Generator()
-    generator(z).shape
-
-
-
-
-
-
-
+    G_z = generator(z)
