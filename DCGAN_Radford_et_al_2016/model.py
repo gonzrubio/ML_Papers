@@ -23,7 +23,7 @@ class Discriminator(nn.Module):
             nn.Conv2d(in_channels=1024, out_channels=1, kernel_size=4),
             nn.Sigmoid()
             )
-        self.init_weights(mean=0.0, std=0.02)
+        # self.init_weights(mean=0.0, std=0.02)
 
     def make_conv(self, in_channels, out_channels, batch_norm=True):
 
@@ -68,6 +68,7 @@ class Generator(nn.Module):
         layer = [nn.ConvTranspose2d(in_channels, out_channels, **kwargs)]
         if bn:
             layer.append(nn.BatchNorm2d(out_channels))
+        # layer.append(nn.LeakyReLU(0.2))
         layer.append(nn.ReLU())
 
         return nn.Sequential(*layer)
