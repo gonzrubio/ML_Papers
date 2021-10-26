@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Mon Oct 25 15:13:12 2021
 
@@ -16,10 +14,10 @@ device = "cuda:0" if torch.cuda.is_available() else "cpu"
 class Discriminator(nn.Module):
     def __init__(self):
         super().__init__()
-        # Input shape [batch_size, in_channels=3, H=64, W=64]
+        # Input shape [batch_size, in_channels=3, H=32, W=32]
         self.disc = nn.Sequential(
-            self.make_conv(in_channels=3, out_channels=128, batch_norm=False),
-            self.make_conv(in_channels=128, out_channels=256),
+            # self.make_conv(in_channels=3, out_channels=128, batch_norm=False),
+            self.make_conv(in_channels=3, out_channels=256),
             self.make_conv(in_channels=256, out_channels=512),
             self.make_conv(in_channels=512, out_channels=1024),
             nn.Conv2d(in_channels=1024, out_channels=1, kernel_size=4),
@@ -60,7 +58,7 @@ class Generator(nn.Module):
             self.make_upsample(in_channels=256, out_channels=128,
                                kernel_size=4, stride=2, padding=1),
             self.make_upsample(in_channels=128, out_channels=3, bn=False,
-                               kernel_size=4, stride=2, padding=1),
+                               kernel_size=1, stride=1, padding=0),
             nn.Tanh()
         )
         self.init_weights(mean=0.0, std=0.02)
@@ -85,10 +83,11 @@ class Generator(nn.Module):
 
 
 if __name__ == '__main__':
-    x = torch.randn((64, 3, 64, 64))
-    discriminator = Discriminator()
-    D_x = discriminator(x)
-
     z = torch.randn((64, 100, 1, 1))
     generator = Generator()
     G_z = generator(z)
+
+    x = torch.randn((64, 3, 32, 32))
+    discriminator = Discriminator()
+    D_x = discriminator(x)
+    D_z = discriminator(G_z)
