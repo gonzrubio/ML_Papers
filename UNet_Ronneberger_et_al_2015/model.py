@@ -13,13 +13,13 @@ import torch.nn as nn
 
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels=1, out_channels=64):
+    def __init__(self, in_channels=1, hidden_channels=64, out_channels=64):
         super( ConvBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=in_channels,
-                               out_channels=out_channels,
+                               out_channels=hidden_channels,
                                kernel_size=3, stride=1, padding=0, bias=False)
-        self.batch_norm1 = nn.BatchNorm2d(num_features=out_channels)
-        self.conv2 = nn.Conv2d(in_channels=out_channels,
+        self.batch_norm1 = nn.BatchNorm2d(num_features=hidden_channels)
+        self.conv2 = nn.Conv2d(in_channels=hidden_channels,
                                out_channels=out_channels,
                                kernel_size=3, stride=1, padding=0, bias=False)
         self.batch_norm2 = nn.BatchNorm2d(num_features=out_channels)
@@ -38,8 +38,21 @@ class ConvBlock(nn.Module):
 
 
 if __name__ == '__main__':
-    x = torch.randn((1, 1, 572, 572))
-    conv_block = ConvBlock(in_channels=1, out_channels=64)
+    # downsample conv
+    # x = torch.randn((1, 1, 572, 572))
+    # conv_block = ConvBlock(in_channels=1, hidden_channels=64, out_channels=64)
+    # x = conv_block(x)
+    # print(x.shape)
+
+    # upsample conv
+    # x = torch.randn((1, 256, 200, 200))
+    # conv_block = ConvBlock(in_channels=256, hidden_channels=128, out_channels=64)
+    # x = conv_block(x)
+    # print(x.shape)
+    
+    # output conv
+    x = torch.randn((1, 128, 392, 392))
+    conv_block = ConvBlock(in_channels=128, hidden_channels=64, out_channels=64)
     x = conv_block(x)
-    x.shape
+    print(x.shape)    
     
