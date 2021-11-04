@@ -4,6 +4,8 @@ Paper: https://arxiv.org/abs/1505.04597
 
 Created on Tue Nov  2 18:27:52 2021
 
+Note: Down sample conv blocks are done with padding and mirroring in the paper.
+
 @author: gonzr
 """
 
@@ -35,6 +37,19 @@ class ConvBlock(nn.Module):
         x = self.relu(x)
 
         return x
+
+
+class UNet(nn.Module):
+    def __init__(self):
+        super(self, UNet).__init__()
+        # Downsample conv blocks 5 total, from top to bottom
+        # Copy crop for skip connections:
+        # one idea would be to upsample so it matches the shape of the other
+        # side of the U, no pixels are dropped that way
+        # Upsample conv blocks 4 total, from bottom to top)
+        # read about trsnpose conv
+        # concat skip connections along channels dimension
+        # output segmentation map
 
 
 if __name__ == '__main__':
