@@ -15,7 +15,7 @@ import torch.nn as nn
 
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels=1, hidden_channels=64, out_channels=64):
+    def __init__(self, in_channels=1, hidden_channels=64, out_channels=64, pool=True):
         super(ConvBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=in_channels,
                                out_channels=hidden_channels,
@@ -26,7 +26,8 @@ class ConvBlock(nn.Module):
                                kernel_size=3, stride=1, padding=0, bias=False)
         self.batch_norm2 = nn.BatchNorm2d(num_features=out_channels)
         self.relu = nn.ReLU()
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2) if pool else False
 
     def forward(self, x):
         x = self.conv1(x)
@@ -35,9 +36,8 @@ class ConvBlock(nn.Module):
         x = self.conv2(x)
         x = self.batch_norm2(x)
         x = self.relu(x)
-        x = self.pool(x)
 
-        return x
+        return self.pool(x) if self.pool else x
 
 
 class UNet(nn.Module):
@@ -49,19 +49,32 @@ class UNet(nn.Module):
         self.contract.append(ConvBlock(in_channels=in_channels,
                                        hidden_channels=self.features,
                                        out_channels=self.features))
+
+        features = self.features
+        n = 5
+        for block in range(1, n):
+            features *= 2
+            self.contract.append(ConvBlock(in_channels=features//2,
+                                           hidden_channels=features,
+                                           out_channels=features,
+                                           pool=True if block < n - 1 else False))
+        
         # self.expand = nn.ModuleList()
 
         # one idea would be to upsample so it matches the shape of the other
         # side of the U, no pixels are dropped that way
 
-        # Upsample conv blocks 4 total, from bottom to top)
+        # Upsample conv blocks from bottom to top)
         # read about trsnpose conv
         # concat skip connections along channels dimension
         # output segmentation map
 
     def forward(self, x):
 
-        x = self.contract[0](x)
+        for block in self.contract:
+            x = block(x)
+
+
         # Copy crop for skip connections:
         return x
 
