@@ -20,6 +20,8 @@ torch.cuda.empty_cache()
 class ConvBlock(nn.Module):
     def __init__(self, in_channels=1, hidden_channels=64, out_channels=64, mirroring=False):
         super(ConvBlock, self).__init__()
+
+        # mirroring means valid convolution, need to extrapolate input data
         p = 0 if mirroring else 1
         self.conv1 = nn.Conv2d(in_channels=in_channels,
                                out_channels=hidden_channels,
@@ -87,16 +89,21 @@ class UNet(nn.Module):
 
     def forward(self, x):
 
+        skip = []
         for block in self.contract:
             x = block(x)
+            # Copy output for skip connections. Fix: It saves the last output
+            if isinstance(block, ConvBlock):
+                skip.append(x)
             print(x.shape)
-            # Copy output for skip connections
 
-        for block_idx, operation in enumerate(self.expand, start=1):
-            if block_idx % 2 == 0:
+        idx = -2
+        for block in self.expand:
+            if isinstance(block, ConvBlock):
                 # concat skip connections along channels dimension
-                x = torch.cat((x, x), dim=1)
-            x = operation(x)
+                x = torch.cat((x, skip[idx]), dim=1)
+                idx -= 1
+            x = block(x)
             print(x.shape)
 
         x = self.output(x)
@@ -105,8 +112,8 @@ class UNet(nn.Module):
 
 if __name__ == '__main__':
 
-    x = torch.randn((1, 1, 572, 572), device=device) 
-    model = UNet(mirroring=True).to(device)
+    x = torch.randn((1, 1, 576, 576), device=device) 
+    model = UNet(mirroring=False).to(device)
 
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Number of parameters: {total_params:,}")
