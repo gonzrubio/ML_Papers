@@ -43,7 +43,9 @@ class ConvBlock(nn.Module):
 class UNet(nn.Module):
     def __init__(self, in_channels=1, out_channels=1):
         super(UNet, self).__init__()
+
         # Downsample conv blocks 5 total, from top to bottom
+        n = 5
         self.features = 64
         self.contract = nn.ModuleList()
         self.contract.append(ConvBlock(in_channels=in_channels,
@@ -51,21 +53,20 @@ class UNet(nn.Module):
                                        out_channels=self.features))
 
         features = self.features
-        n = 5
         for block in range(1, n):
             features *= 2
             self.contract.append(ConvBlock(in_channels=features//2,
                                            hidden_channels=features,
                                            out_channels=features,
                                            pool=True if block < n - 1 else False))
-        
-        # self.expand = nn.ModuleList()
+    
 
-        # one idea would be to upsample so it matches the shape of the other
-        # side of the U, no pixels are dropped that way
-
-        # Upsample conv blocks from bottom to top)
+        # Expand conv blocks from bottom to top)
+        self.expand = nn.ModuleList()
+        # Upsample so it matches the shape of the contraction path
         # read about trsnpose conv
+        self.expand.append()
+
         # concat skip connections along channels dimension
         # output segmentation map
 
