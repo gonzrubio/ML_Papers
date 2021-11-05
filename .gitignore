@@ -1,4 +1,5 @@
 # Data
+*UNet_Ronneberger_et_al_2015/data/
 *.gz
 *.cpkl
 
