@@ -15,7 +15,7 @@ import torch.nn as nn
 
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels=1, hidden_channels=64, out_channels=64, pool=True):
+    def __init__(self, in_channels=1, hidden_channels=64, out_channels=64):
         super(ConvBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=in_channels,
                                out_channels=hidden_channels,
@@ -27,8 +27,6 @@ class ConvBlock(nn.Module):
         self.batch_norm2 = nn.BatchNorm2d(num_features=out_channels)
         self.relu = nn.ReLU()
 
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2) if pool else False
-
     def forward(self, x):
         x = self.conv1(x)
         x = self.batch_norm1(x)
@@ -37,7 +35,7 @@ class ConvBlock(nn.Module):
         x = self.batch_norm2(x)
         x = self.relu(x)
 
-        return self.pool(x) if self.pool else x
+        return x
 
 
 class UNet(nn.Module):
@@ -48,24 +46,25 @@ class UNet(nn.Module):
         n = 5
         self.features = 64
         self.contract = nn.ModuleList()
-        self.contract.append(ConvBlock(in_channels=in_channels,
+        self.contract.extend([ConvBlock(in_channels=in_channels,
                                        hidden_channels=self.features,
-                                       out_channels=self.features))
+                                       out_channels=self.features),
+                             nn.MaxPool2d(kernel_size=2, stride=2)])
 
         features = self.features
         for block in range(1, n):
             features *= 2
             self.contract.append(ConvBlock(in_channels=features//2,
                                            hidden_channels=features,
-                                           out_channels=features,
-                                           pool=True if block < n - 1 else False))
-    
+                                           out_channels=features))
+            if block < n - 1 :
+                self.contract.append(nn.MaxPool2d(kernel_size=2, stride=2))    
 
         # Expand conv blocks from bottom to top)
-        self.expand = nn.ModuleList()
+        # self.expand = nn.ModuleList()
         # Upsample so it matches the shape of the contraction path
         # read about trsnpose conv
-        self.expand.append()
+        # self.expand.append()
 
         # concat skip connections along channels dimension
         # output segmentation map
@@ -74,6 +73,7 @@ class UNet(nn.Module):
 
         for block in self.contract:
             x = block(x)
+            print(x.shape)
 
 
         # Copy crop for skip connections:
