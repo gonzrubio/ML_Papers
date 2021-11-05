@@ -4,8 +4,6 @@ Paper: https://arxiv.org/abs/1505.04597
 
 Created on Tue Nov  2 18:27:52 2021
 
-Note: Down sample conv blocks are done with padding and mirroring in the paper.
-
 @author: gonzr
 """
 
