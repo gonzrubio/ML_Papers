@@ -12,6 +12,8 @@ Note: Down sample conv blocks are done with padding and mirroring in the paper.
 
 import torch
 import torch.nn as nn
+from torchvision.transforms.functional import resize
+
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 torch.cuda.empty_cache()
@@ -95,30 +97,30 @@ class UNet(nn.Module):
             # Copy output for skip connections. Fix: It saves the last output
             if isinstance(block, ConvBlock):
                 skip.append(x)
-            print(x.shape)
 
         idx = -2
         for block in self.expand:
             if isinstance(block, ConvBlock):
                 # concat skip connections along channels dimension
+                if x.shape != skip[idx].shape:
+                    # deal with pooling operation from contracting path
+                    x = resize(x, size=skip[idx].shape[2:])
                 x = torch.cat((x, skip[idx]), dim=1)
                 idx -= 1
             x = block(x)
-            print(x.shape)
 
         x = self.output(x)
 
         return x
 
+
 if __name__ == '__main__':
 
-    x = torch.randn((1, 1, 576, 576), device=device) 
+    x = torch.randn((1, 1, 572, 572), device=device)
     model = UNet(mirroring=False).to(device)
 
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Number of parameters: {total_params:,}")
 
     x_out = model(x)
-    print(x_out.shape)
-
-
+    assert x_out.shape[2:] == x.shape[2:]
