@@ -33,9 +33,9 @@ class CamSeq01(Dataset):
 
     def __getitem__(self, index):
         image_name = os.path.join(self.image_dir, self.images[index])
-        mask_name = os.path.join(self.mask_dir + self.images[index])
+        mask_name = os.path.join(self.mask_dir, self.images[index])
         image = Image.open(image_name)
-        mask = Image.open(mask_name)
+        mask = Image.open(mask_name.replace(".png", "_L.png"))
 
         if self.transform:
             image = self.transform(image)
