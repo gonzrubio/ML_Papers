@@ -13,7 +13,6 @@ Created on Tue Nov  2 18:27:52 2021
 
 
 import numpy as np
-import matplotlib.pyplot as plt
 import os
 import torch
 
@@ -30,6 +29,7 @@ def mean_std(dataset):
     mean = 0.
     std = 0.
     for images, _ in loader:
+        images = images.to(device)
         batch_samples = images.size(0)
         images = images.view(batch_samples, images.size(1), -1)
         mean += images.mean(2).sum(0)
@@ -39,14 +39,6 @@ def mean_std(dataset):
     std /= len(loader.dataset)
 
     return mean, std
-
-
-def RGB_to_key(channels):
-    key = ""
-    for elem in channels[:-1]:        
-        key += str(elem.item()) + ' '
-
-    return key + str(channels[-1].item())
 
 
 one_hot = {
@@ -85,58 +77,96 @@ one_hot = {
     }
 
 
+def RGB_to_key(channels):
+    key = ""
+    for elem in channels[:-1]:        
+        key += str(elem.item()) + ' '
+
+    return key + str(channels[-1].item())
+
+
+def transform(image_dir, image_transform, mask_dir, mask_transform):
+
+    images = os.listdir(image_dir)
+    # [batch_size, channels, height, width]
+    images_tensor = torch.empty((len(images), 3, 224, 224))
+    for image_idx, image in enumerate(images):
+        image_name = os.path.join(image_dir, image)
+        image = Image.open(image_name)
+        # image.show()
+    
+        if image_transform:
+            image = image_transform(image)
+
+        images_tensor[image_idx, :] = image
+
+    masks = os.listdir(mask_dir)
+    masks_tensor = torch.empty((len(masks), len(one_hot), 224, 224))
+    for mask_idx, mask in enumerate(masks):
+        mask_name = os.path.join(mask_dir, mask)
+        mask = Image.open(mask_name)
+        # mask.show()
+
+        if mask_transform:
+            mask = np.array(mask_transform(mask))
+    
+            mask_one_hot = torch.zeros((len(one_hot),
+                                        image.shape[-2],
+                                        image.shape[-1]))
+    
+            for row in range(image.shape[-2]):
+                for col in range(image.shape[-2]):
+    
+                    key = RGB_to_key(mask[row, col,:])
+                    if key in one_hot:
+                        mask_one_hot[one_hot[key] - 1, row, col] = 1.
+                    else:
+                        mask_one_hot[31 - 1, row, col] = 1.  # void label
+
+        masks_tensor[mask_idx, :] = mask_one_hot
+        
+    return images_tensor, masks_tensor
+
+
 class CamSeq01(Dataset):
     def __init__(self, image_dir, mask_dir, image_transform=None, mask_transform=None):
         self.image_dir = image_dir
-        self.images = os.listdir(image_dir)
-        self.mask_dir = mask_dir
-        self.masks = os.listdir(mask_dir)
-        self.len = len(self.images)
         self.image_transform = image_transform
+        self.mask_dir = mask_dir
         self.mask_transform = mask_transform
+
+        self.images, self.masks = transform(self.image_dir,
+                                            self.image_transform,
+                                            self.mask_dir,
+                                            self.mask_transform)
+        self.len = self.images.shape[0]
 
     def __len__(self):
         return self.len
 
     def __getitem__(self, index):
-        image_name = os.path.join(self.image_dir, self.images[index])
-        image = Image.open(image_name)
-
-        mask_name = os.path.join(self.mask_dir, self.images[index])
-        mask = Image.open(mask_name.replace(".png", "_L.png"))
-
-        if self.image_transform:
-            image = self.image_transform(image)
-
-        if self.mask_transform:
-            mask = np.array(self.mask_transform(mask))
-            # mask = self.mask_transform(mask)
-            # one hot encoding
-            # Loop through image and look down the channels for that pixel.
-            # Depending on the channles assign a class using one hot encoding.
-            mask_one_hot = torch.empty((32, image.shape[-2], image.shape[-1]))
-            for row in range(mask.shape[-2]):
-                for col in range(mask.shape[-1]):
-                    key = RGB_to_key(mask[row, col,:])
-                    mask_one_hot[:, row, col] = one_hot[key]
-                    
-        return image, mask
+        return self.images[index], self.masks[index]
 
 
 if __name__ == '__main__':
 
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    torch.cuda.empty_cache()
+
     image_dir_train = os.getcwd() + '\\data\\train\\image'
     mask_dir_train = os.getcwd() + '\\data\\train\\mask'
 
+    size = (224, 224)
+
     image_transform_train = transforms.Compose(
-        [transforms.Resize((224, 224)),
+        [transforms.Resize(size),
          transforms.ToTensor(),
          transforms.Normalize([0.3158, 0.3349, 0.3497],
                               [0.2301, 0.2595, 0.2577])
              ])
 
     mask_transform_train = transforms.Compose(
-        [transforms.Resize((224, 224)),
+        [transforms.Resize(size),
              ])
 
     dataset_train = CamSeq01(
@@ -151,4 +181,17 @@ if __name__ == '__main__':
     print("Mean: ", mean)
     print("Std:", std)
 
+    image_dir_test = os.getcwd() + '\\data\\test\\image'
+    mask_dir_test = os.getcwd() + '\\data\\test\\mask'
 
+    dataset_test = CamSeq01(
+        image_dir=image_dir_test,
+        mask_dir=mask_dir_test,
+        image_transform=image_transform_train,
+        mask_transform=mask_transform_train
+        )
+
+    mean, std = mean_std(dataset_test)
+
+    print("Mean: ", mean)
+    print("Std:", std)
