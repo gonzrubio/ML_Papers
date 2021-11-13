@@ -88,8 +88,9 @@ def RGB_to_key(channels):
 def transform(image_dir, image_transform, mask_dir, mask_transform):
 
     images = os.listdir(image_dir)
-    # [batch_size, channels, height, width]
-    images_tensor = torch.empty((len(images), 3, 224, 224))
+    channels, height, width = 3, *image_transform.transforms[0].size
+    images_tensor = torch.empty((len(images), channels, height, width))
+
     for image_idx, image in enumerate(images):
         image_name = os.path.join(image_dir, image)
         image = Image.open(image_name)
@@ -101,18 +102,15 @@ def transform(image_dir, image_transform, mask_dir, mask_transform):
         images_tensor[image_idx, :] = image
 
     masks = os.listdir(mask_dir)
-    masks_tensor = torch.empty((len(masks), len(one_hot), 224, 224))
+    masks_tensor = torch.empty((len(masks), len(one_hot), height, width))
     for mask_idx, mask in enumerate(masks):
         mask_name = os.path.join(mask_dir, mask)
         mask = Image.open(mask_name)
         # mask.show()
 
         if mask_transform:
-            mask = np.array(mask_transform(mask))
-    
-            mask_one_hot = torch.zeros((len(one_hot),
-                                        image.shape[-2],
-                                        image.shape[-1]))
+            mask = np.array(mask_transform(mask))    
+            mask_one_hot = torch.zeros((len(one_hot), height, width))
     
             for row in range(image.shape[-2]):
                 for col in range(image.shape[-2]):
@@ -121,7 +119,8 @@ def transform(image_dir, image_transform, mask_dir, mask_transform):
                     if key in one_hot:
                         mask_one_hot[one_hot[key] - 1, row, col] = 1.
                     else:
-                        mask_one_hot[31 - 1, row, col] = 1.  # void label
+                        # void label
+                        mask_one_hot[len(one_hot) - 1, row, col] = 1.
 
         masks_tensor[mask_idx, :] = mask_one_hot
         
@@ -156,7 +155,7 @@ if __name__ == '__main__':
     image_dir_train = os.getcwd() + '\\data\\train\\image'
     mask_dir_train = os.getcwd() + '\\data\\train\\mask'
 
-    size = (224, 224)
+    size = (572, 572)
 
     image_transform_train = transforms.Compose(
         [transforms.Resize(size),
