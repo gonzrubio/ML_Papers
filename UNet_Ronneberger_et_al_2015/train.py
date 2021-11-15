@@ -5,6 +5,13 @@ Paper: https://arxiv.org/abs/1505.04597
 Created on Sat Nov 13 13:38:17 2021
 
 @author: gonzr
+
+TO DO:
+    - Assign class indices for labels instead of one hot encoding to allow for
+    optimized memory and computation.
+    - Compute class weights.
+    - Data augmentation (more transforms, apply transforms in to getter not
+    in the contructor).
 """
 
 
@@ -18,28 +25,30 @@ import torch.optim as optim
 from dataset import CamSeq01
 from model import UNet
 
-from torch.optim.lr_scheduler import CosineAnnealingLR
+# from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from torchvision import transforms
 from torchvision.utils import make_grid
 
 
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
+NUM_WORKERS = 2
 
 
 def train(dataset_train, dataset_val, batch_size, epochs, model, loss_fn, optim):
 
-    loader_train = DataLoader(dataset_train, batch_size=batch_size, shuffle=True)
+    loader_train = DataLoader(dataset_train, batch_size=batch_size,
+                              shuffle=True, num_workers=NUM_WORKERS)
     loader_val = DataLoader(dataset_val, batch_size=batch_size, shuffle=False)
-    writer = SummaryWriter()
+    writer = SummaryWriter("tensorboard/")
 
     for epoch in range(epochs):
         for batch_idx, (image, mask) in enumerate(loader_train):
 
             image = image.to(DEVICE)
             mask = mask.to(DEVICE)
+            # Convert to class index and reshape to [batch_size, height, width]
 
             mask_pred = model(image)
             loss_train = loss_fn(mask_pred, mask)
@@ -72,45 +81,17 @@ def train(dataset_train, dataset_val, batch_size, epochs, model, loss_fn, optim)
 if __name__ == '__main__':
 
     # Data
-    image_dir_train = os.getcwd() + '\\data\\train\\image'
-    mask_dir_train = os.getcwd() + '\\data\\train\\mask'
-    size = (572, 572)
-
-    image_transform_train = transforms.Compose(
-        [transforms.Resize(size),
-         transforms.ToTensor(),
-         transforms.Normalize([0.3158, 0.3349, 0.3497],
-                              [0.2301, 0.2595, 0.2577])
-             ])
-
-    mask_transform_train = transforms.Compose(
-        [transforms.Resize(size),
-             ])
-
-    dataset_train = CamSeq01(
-        image_dir=image_dir_train,
-        mask_dir=mask_dir_train,
-        image_transform=image_transform_train,
-        mask_transform=mask_transform_train
-        )
-
-    image_dir_test = os.getcwd() + '\\data\\test\\image'
-    mask_dir_test = os.getcwd() + '\\data\\test\\mask'
-
-    dataset_val = CamSeq01(
-        image_dir=image_dir_test,
-        mask_dir=mask_dir_test,
-        image_transform=image_transform_train,
-        mask_transform=mask_transform_train
-        )
+    path = os.getcwd() + "\\data"
+    dataset_train = torch.load(path + "\\train\\dataset_train.pt")
+    dataset_val = torch.load(path + "\\test\\dataset_test.pt")
 
     # Model
     model = UNet(in_channels=3, out_channels=32, mirroring=False).to(DEVICE)
 
     # Hyperparameters
     epochs = 20
-    batch_size = 2 ** 2
-    loss = nn.BCELoss()
+    batch_size = 1
+    loss = nn.CrossEntropyLoss()
     lr = 5e-4
     optim = optim.Adam(model.parameters(), lr=lr)
     # sched = CosineAnnealingLR(optim, T_max=10, eta_min=0)
