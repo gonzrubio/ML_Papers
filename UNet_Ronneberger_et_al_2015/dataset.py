@@ -194,3 +194,6 @@ if __name__ == '__main__':
 
     print("Mean: ", mean)
     print("Std:", std)
+
+    # torch.save(dataset_train, "dataset_train.pt")
+    # torch.save(dataset_test, "dataset_test.pt")
