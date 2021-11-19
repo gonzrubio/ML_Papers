@@ -13,109 +13,131 @@ import torch.nn as nn
 
 
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
+torch.cuda.empty_cache()
 
 
 class Discriminator(nn.Module):
-    """The 70 x 70 discriminator architecture.
+    """C64-C128-C256-C512 PatchGAN Discriminator architecture."""
 
-        C64-C128-C256-C512 where Ck denotes a Convolution-BtachNorm-ReLU with
-        k channels. All convolutions are 4 x 4 spatial filters applied with
-        stride 2 and downsample by a factor of 2. BatchNorm is not applied to
-        the c64 layer. After the last layer, a convolution is applied to map
-        to a 1-d output, followed by a Sigmoid function. All ReLUs are leaky
-        with a slope of 0.2.
-    """
-
-    def __init__(self):
+    def __init__(self, in_channels=3):
         super(Discriminator, self).__init__()
-        channels = [64, 128, 256, 512]
+        channels = [in_channels, 64, 128, 256, 512, 1]
         layers = len(channels)
         channels = zip(channels, channels[1:])
 
-        modules = []
-        for layer, input_size, output_size in enumerate(channels):
+        self.blocks = nn.ModuleList()
+        for layer, (input_size, output_size) in enumerate(channels):
             if layer == 0:
-                modules.append(self.make_conv(in_channels=input_size,
-                                              out_channels=output_size,
-                                              batch_norm=True))
-            elif layer < layers:
-                modules.append(self.make_conv(in_channels=input_size,
-                                              out_channels=output_size,
-                                              batch_norm=False))
+                input_size *= 2
+                batch_norm = False
+                leaky = True
+            elif layer < layers - 2:
+                batch_norm = True
+                leaky = True
             else:
-                modules.append(nn.Conv2d(in_channels=channels[-1],
-                                         out_channels=1,
-                                         size=2, kernel=4, stride=2))
-                modules.append(nn.Sigmoid())
+                batch_norm = False
+                leaky = False
+            self.blocks.append(self.make_conv(in_size=input_size,
+                                              out_size=output_size,
+                                              batch_norm=batch_norm,
+                                              leaky=leaky))
 
-        self.disc = nn.Sequential(**modules)
         self.init_weights(mean=0.0, std=0.02)
 
-    def make_conv(self, in_channels, out_channels, batch_norm=True):
+    def make_conv(self, in_size, out_size, batch_norm, leaky):
+        """Convolutional blocks of the Discriminator.
 
-        layer = [nn.Conv2d(in_channels, out_channels,
-                           kernel_size=5, stride=2, padding=2)]
+        Let Ck denote a Convolution-BtachNorm-ReLU block with k channels.
+        All convolutions are 4 x 4 spatial filters with stride 2 and
+        downsample by a factor of 2. BatchNorm is not applied to the c64 block.
+
+        After the C512 block, a convolution is applied to map to a 1-d output,
+        followed by a Sigmoid function. All ReLUs are leaky with slope of 0.2.
+        """
+        block = [nn.Conv2d(in_size, out_size,
+                           kernel_size=4, stride=2, padding=2,
+                           padding_mode="reflect",
+                           bias=False if batch_norm else True)]
         if batch_norm:
-            layer.append(nn.BatchNorm2d(out_channels))
-        layer.append(nn.LeakyReLU(0.2))
+            block.append(nn.BatchNorm2d(out_size))
+        if leaky:
+            block.append(nn.LeakyReLU(0.2))
+        else:
+            block.append(nn.Sigmoid())
 
-        return nn.Sequential(*layer)
-
-    def init_weights(self, mean=0.0, std=0.02):
-        for module in self.modules():
-            if isinstance(module,
-                          (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
-                nn.init.normal_(module.weight.data, mean=mean, std=std)
-
-    def forward(self, x):
-        return self.disc(x).view(-1, 1)
-
-
-
-class Generator(nn.Module):
-    def __init__(self, z_dim=100):
-        super().__init__()
-        self.gen = nn.Sequential(
-            self.make_upsample(in_channels=z_dim, out_channels=1024,
-                               kernel_size=4, stride=1, padding=0),
-            self.make_upsample(in_channels=1024, out_channels=512,
-                               kernel_size=4, stride=2, padding=1),
-            self.make_upsample(in_channels=512, out_channels=256,
-                               kernel_size=4, stride=2, padding=1),
-            self.make_upsample(in_channels=256, out_channels=128,
-                               kernel_size=4, stride=2, padding=1),
-            self.make_upsample(in_channels=128, out_channels=3, bn=False,
-                               kernel_size=1, stride=1, padding=0),
-            nn.Tanh()
-        )
-        self.init_weights(mean=0.0, std=0.02)
-
-    def make_upsample(self, in_channels, out_channels, bn=True, **kwargs):
-
-        layer = [nn.ConvTranspose2d(in_channels, out_channels, **kwargs)]
-        if bn:
-            layer.append(nn.BatchNorm2d(out_channels))
-        # layer.append(nn.LeakyReLU(0.2))
-        layer.append(nn.ReLU())
-
-        return nn.Sequential(*layer)
+        return nn.Sequential(*block)
 
     def init_weights(self, mean=0.0, std=0.02):
+        """Initialize weights from a Gaussian distribution."""
         for module in self.modules():
-            if isinstance(module,
-                          (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
+            if isinstance(module, (nn.Conv2d, nn.BatchNorm2d)):
                 nn.init.normal_(module.weight.data, mean=mean, std=std)
 
-    def forward(self, x):
-        return self.gen(x)
+    def forward(self, x, y):
+        """Output an nxn tensor belonging to patch ij in the input image."""
+        x = torch.cat((x, y), dim=1)
+        for block in self.blocks:
+            x = block(x)
+        return x
+
+
+# class Generator(nn.Module):
+#     def __init__(self, z_dim=100):
+#         super().__init__()
+#         self.gen = nn.Sequential(
+#             self.make_upsample(in_channels=z_dim, out_channels=1024,
+#                                kernel_size=4, stride=1, padding=0),
+#             self.make_upsample(in_channels=1024, out_channels=512,
+#                                kernel_size=4, stride=2, padding=1),
+#             self.make_upsample(in_channels=512, out_channels=256,
+#                                kernel_size=4, stride=2, padding=1),
+#             self.make_upsample(in_channels=256, out_channels=128,
+#                                kernel_size=4, stride=2, padding=1),
+#             self.make_upsample(in_channels=128, out_channels=3, bn=False,
+#                                kernel_size=1, stride=1, padding=0),
+#             nn.Tanh()
+#         )
+#         self.init_weights(mean=0.0, std=0.02)
+
+#     def make_upsample(self, in_channels, out_channels, bn=True, **kwargs):
+
+#         layer = [nn.ConvTranspose2d(in_channels, out_channels, **kwargs)]
+#         if bn:
+#             layer.append(nn.BatchNorm2d(out_channels))
+#         # layer.append(nn.LeakyReLU(0.2))
+#         layer.append(nn.ReLU())
+
+#         return nn.Sequential(*layer)
+
+#     def init_weights(self, mean=0.0, std=0.02):
+#         for module in self.modules():
+#             if isinstance(module,
+#                           (nn.Conv2d, nn.ConvTranspose2d, nn.BatchNorm2d)):
+#                 nn.init.normal_(module.weight.data, mean=mean, std=std)
+
+#     def forward(self, x):
+#         return self.gen(x)
 
 
 if __name__ == '__main__':
-    z = torch.randn((64, 100, 1, 1))
-    generator = Generator()
-    G_z = generator(z)
 
-    x = torch.randn((64, 3, 32, 32))
-    discriminator = Discriminator()
-    D_x = discriminator(x)
-    D_z = discriminator(G_z)
+    batch_size = 16
+    channels = 3
+    height = 512
+    width = 512
+
+    x = torch.randn((batch_size, channels, height, width), device=DEVICE)
+    y = torch.randn((batch_size, channels, height, width), device=DEVICE)
+
+    discriminator = Discriminator().to(DEVICE)
+    total_params = sum(p.numel() for p in discriminator.parameters())
+    print(f"Number of parameters: {total_params:,}")
+
+    D_x = discriminator(x, y)
+    print(D_x.shape)
+
+    # z = torch.randn((batch_size, 100, 1, 1))
+    # generator = Generator()
+    # G_z = generator(z)
+
+    # D_z = discriminator(G_z)
