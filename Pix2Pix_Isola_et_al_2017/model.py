@@ -16,7 +16,7 @@ DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 torch.cuda.empty_cache()
 
 
-def make_conv(in_size, out_size, batch_norm, activation):
+def make_conv(in_size, out_size, encode, batch_norm, activation, drop_out):
     """Convolutional blocks of the Generator and the Discriminator.
 
     Let Ck denote a Convolution-BtachNorm-ReLU block with k filters.
@@ -26,9 +26,14 @@ def make_conv(in_size, out_size, batch_norm, activation):
     decoder they upsample by a factor of 2.
     """
     block = [nn.Conv2d(in_size, out_size,
-                       kernel_size=4, stride=2, padding=2,
+                       kernel_size=4, stride=2, padding=1,
                        padding_mode="reflect",
-                       bias=False if batch_norm else True)]
+                       bias=False if batch_norm else True)
+             if encode else
+             nn.ConvTranspose2d(in_size, out_size,
+                                kernel_size=4, stride=2, padding=1,
+                                bias=False if batch_norm else True)]
+
     if batch_norm:
         block.append(nn.BatchNorm2d(out_size))
     if activation == "leaky":
@@ -39,6 +44,8 @@ def make_conv(in_size, out_size, batch_norm, activation):
         block.append(nn.Tanh())
     elif activation == "relu":
         block.append(nn.ReLU())
+    if drop_out:
+        block.append(nn.Dropout(0.5))
 
     return nn.Sequential(*block)
 
@@ -79,20 +86,43 @@ class Generator(nn.Module):
                 batch_norm = True
             self.encoder.append(make_conv(in_size=input_size,
                                           out_size=output_size,
+                                          encode=True,
                                           batch_norm=batch_norm,
-                                          activation="leaky"))
+                                          activation="leaky",
+                                          drop_out=False))
 
-        # decoder = [512, 1024, 1024, 1024, 1024, 512, 256, 128, out_channels]
-        # layers_decoder = len(decoder)
-        # decoder = zip(decoder, decoder[1:])
+        decoder = [512, 1024, 1024, 1024, 1024, 512, 256, 128, out_channels]
+        layers_decoder = len(decoder)
+        decoder = zip(decoder, decoder[1:])
+
+        self.decoder = nn.ModuleList()
+        for layer, (input_size, output_size) in enumerate(decoder):
+            if layer < layers_decoder - 2:
+                batch_norm = True
+                activation = "relu"
+            else:
+                batch_norm = False
+                activation = "tanh"
+            drop_out = True if layer in (0, 1, 2) else False
+            self.decoder.append(make_conv(in_size=input_size,
+                                          out_size=output_size,
+                                          encode=False,
+                                          batch_norm=batch_norm,
+                                          activation=activation,
+                                          drop_out=drop_out))
 
         init_weights(self, mean=0.0, std=0.02)
 
     def forward(self, x, z):
         """Generate a translation of x conditioned on the noise z."""
         x = torch.cat((x, z), dim=1)
+
         for block in self.encoder:
             x = block(x)
+
+        for block in self.decoder:
+            x = block(x)
+
         return x
 
 
@@ -125,8 +155,10 @@ class Discriminator(nn.Module):
                 activation = "sigmoid"
             self.blocks.append(make_conv(in_size=input_size,
                                          out_size=output_size,
+                                         encode=True,
                                          batch_norm=batch_norm,
-                                         activation=activation))
+                                         activation=activation,
+                                         drop_out=False))
 
         init_weights(self, mean=0.0, std=0.02)
 
@@ -140,7 +172,7 @@ class Discriminator(nn.Module):
 
 if __name__ == '__main__':
 
-    batch_size = 4
+    batch_size = 16
     channels = 3
     height = 256
     width = 256
