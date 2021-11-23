@@ -78,8 +78,8 @@ class Generator(nn.Module):
         encoder = zip(encoder, encoder[1:])
 
         self.encoder = nn.ModuleList()
-        for layer, (input_size, output_size) in enumerate(encoder):
-            if layer == 0:
+        for idx, (input_size, output_size) in enumerate(encoder):
+            if idx == 0:
                 input_size *= 2
                 batch_norm = False
             else:
@@ -96,31 +96,35 @@ class Generator(nn.Module):
         decoder = zip(decoder, decoder[1:])
 
         self.decoder = nn.ModuleList()
-        for layer, (input_size, output_size) in enumerate(decoder):
-            if layer < layers_decoder - 2:
+        for idx, (input_size, output_size) in enumerate(decoder):
+            if idx < layers_decoder - 2:
                 batch_norm = True
                 activation = "relu"
+                output_size //= 2
             else:
                 batch_norm = False
                 activation = "tanh"
-            drop_out = True if layer in (0, 1, 2) else False
             self.decoder.append(make_conv(in_size=input_size,
                                           out_size=output_size,
                                           encode=False,
                                           batch_norm=batch_norm,
                                           activation=activation,
-                                          drop_out=drop_out))
+                                          drop_out=True if idx < 3 else False))
 
         init_weights(self, mean=0.0, std=0.02)
 
     def forward(self, x, z):
         """Generate a translation of x conditioned on the noise z."""
         x = torch.cat((x, z), dim=1)
+        skip = [None]*len(self.encoder)
 
-        for block in self.encoder:
+        for idx, block in zip(range(len(skip)-1, -1, -1), self.encoder):
             x = block(x)
+            skip[idx] = x
 
-        for block in self.decoder:
+        for idx, block in enumerate(self.decoder):
+            if idx > 0:
+                x = torch.cat((x, skip[idx]), dim=1)
             x = block(x)
 
         return x
@@ -172,7 +176,7 @@ class Discriminator(nn.Module):
 
 if __name__ == '__main__':
 
-    batch_size = 16
+    batch_size = 8
     channels = 3
     height = 256
     width = 256
