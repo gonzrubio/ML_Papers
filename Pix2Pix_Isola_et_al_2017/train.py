@@ -8,77 +8,36 @@ Created on Wed Nov 24 21:48:24 2021
 """
 
 
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
 
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torchvision import transforms, datasets
 from torchvision.utils import make_grid
+# from tqdm import tqdm
 
 
-from model import Generator, Discriminator
+from dataset import Face2Comic
+from model import Generator
+from model import Discriminator
 
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.fastest = True
 
-
-# TO DO:
-# https://github.com/gonzrubio/ML_Papers/blob/main/GANs_Goodfellow_et_al_2014/driver.py
 
 # Data
-train_dataset = datasets.CIFAR10(
-    root='./data/train',
-    train=True,
-    download=True,
-    transform=transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[-0.0163, -0.0347, -0.1056],
-                             std=[0.4045, 0.3987, 0.4020]),
-        # transforms.Normalize(mean=[0.5, 0.5, 0.5],
-        #                      std=[0.5, 0.5, 0.5]),
-    ])
-)
+data_dir = os.getcwd() + '\\data'
+train_dataset = Face2Comic(data_dir=data_dir+'\\train', train=True)
+val_dataset = Face2Comic(data_dir=data_dir+'\\val', train=False)
 
-test_dataset = datasets.CIFAR10(
-    root='./data/test/',
-    train=False,
-    download=True,
-    transform=transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[-0.0163, -0.0347, -0.1056],
-                             std=[0.4045, 0.3987, 0.4020]),
-        # transforms.Normalize(mean=[0.5, 0.5, 0.5],
-        #                      std=[0.5, 0.5, 0.5])
-    ])
-)
 
-dataset = ConcatDataset([train_dataset, test_dataset])
-
-# Find the mean and std of the dataset
-# loader = DataLoader(dataset, batch_size=128, num_workers=0, shuffle=False)
-
-# mean = torch.tensor((0., 0., 0.))
-# std = torch.tensor((0., 0., 0.))
-# for images, _ in loader:
-#     batch_samples = images.size(0)
-#     images = images.view(batch_samples, images.size(1), -1)
-#     mean += images.mean(2).sum(0)
-#     std += images.std(2).sum(0)
-
-# mean /= len(loader.dataset)
-# std /= len(loader.dataset)
-
-# Hyperparameters
-epochs = 200
-z_dim = 100             # Noise vector
-# img_dim = 3 * 32 * 32       # [C, H, W]
-batch_size = 2 ** 9
-fixed_noise = torch.randn((batch_size, z_dim, 1, 1), device=device)
-
+# Model
 generator = Generator().to(device)
 discriminator = Discriminator().to(device)
 
@@ -86,55 +45,87 @@ total_params = sum(p.numel() for p in generator.parameters())
 total_params += sum(p.numel() for p in discriminator.parameters())
 print(f'Number of parameters: {total_params:,}')
 
-lr_G = 5e-4
-lr_D = 4e-6
 
-optim_G = optim.Adam(generator.parameters(), lr=lr_G)
-optim_D = optim.Adam(discriminator.parameters(), lr=lr_D)
+# Hyperparameters
+epochs = 500
+batch_size = 3
+bce = nn.BCEWithLogitsLoss()
+mu = 10
+L1 = nn.L1Loss()
+lr_G = 2e-4
+lr_D = 4e-6
+betas = (0.5, 0.999)
+optim_G = optim.Adam(generator.parameters(), lr=lr_G, betas=betas)
+optim_D = optim.Adam(discriminator.parameters(), lr=lr_D, betas=betas)
 # sched_G = CosineAnnealingLR(optim_G, T_max=20, eta_min=0)
 # sched_D = CosineAnnealingLR(optim_D, T_max=20, eta_min=0)
-bce = nn.BCELoss()
+scaler_D = torch.cuda.amp.GradScaler()
+scaler_G = torch.cuda.amp.GradScaler()
 
-loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-writer = SummaryWriter("logs/fake")
+
+# Train loop
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
+
+writer = SummaryWriter()
+
 step = 0
-
 for epoch in range(epochs):
-    for batch_idx, (real, label) in enumerate(loader):
+    for batch_idx, (face, comic) in enumerate(train_loader):
 
-        real = real.reshape((-1, 3, 32, 32)).to(device)
-        noise = torch.randn((real.shape[0], z_dim, 1, 1), device=device)
-        fake = generator(noise)
+        face = face.to(device)
+        comic = comic.to(device)
+        noise = torch.randn_like(face, device=device)
+        fake = generator(face, noise)
 
         # Maximize Discriminator
-        D_real = discriminator(real)
-        D_fake = discriminator(fake)
-        loss_D_real = bce(D_real, torch.ones_like(D_real))
-        loss_D_fake = bce(D_fake, torch.zeros_like(D_fake))
-        loss_D = 0.5 * (loss_D_real + loss_D_fake)
+        with torch.cuda.amp.autocast():
+            D_real = discriminator(face, comic)
+            D_fake = discriminator(face, fake)
+            loss_D_real = bce(D_real, torch.ones_like(D_real))
+            loss_D_fake = bce(D_fake, torch.zeros_like(D_fake))
+            loss_D = 0.5 * (loss_D_real + loss_D_fake)
 
         discriminator.zero_grad(set_to_none=True)
-        loss_D.backward(retain_graph=True)
-        optim_D.step()
+        scaler_D.scale(loss_D).backward(retain_graph=True)
+        scaler_D.step(optim_D)
+        scaler_D.update()
         # sched_D.step()
 
         # Minimize Generator
-        D_fake = discriminator(fake)
-        loss_G = bce(D_fake, torch.ones_like(D_fake))
+        with torch.cuda.amp.autocast():
+            D_fake = discriminator(face, fake)
+            loss_L1 = L1(fake, comic)
+            loss_G = bce(D_fake, torch.ones_like(D_fake)) + mu * loss_L1
 
         generator.zero_grad(set_to_none=True)
-        loss_G.backward(retain_graph=True)
-        optim_G.step()
+        scaler_G.scale(loss_G).backward(retain_graph=True)
+        scaler_G.step(optim_G)
+        scaler_G.update()
         # sched_G.step()
 
-        if batch_idx % 25 == 0:
+        print(f"{epoch}.{batch_idx} {loss_D: .4e} {loss_G: .4e}")
 
-            print(f"{epoch}.{batch_idx} {loss_D: .3e} {loss_G: .3e}")
+        if batch_idx % 1000 == 0:
+            img_grid = make_grid(face, normalize=True)
+            writer.add_image("Training: Face", img_grid, global_step=step)
+            img_grid = make_grid(comic, normalize=True)
+            writer.add_image("Training: True comic", img_grid, global_step=step)
+            img_grid = make_grid(fake, normalize=True)
+            writer.add_image("Training: Generator comic", img_grid, global_step=step)
 
             generator.eval()
             with torch.no_grad():
-                fake = generator(fixed_noise)
+                face, comic = next(iter(val_loader))
+                face = face.to(device)
+                comic = comic.to(device)
+                noise = torch.randn_like(face, device=device)
+                fake = generator(face, noise)
+                img_grid = make_grid(face, normalize=True)
+                writer.add_image("Validation: Face", img_grid, global_step=step)
+                img_grid = make_grid(comic, normalize=True)
+                writer.add_image("Validation: True comic", img_grid, global_step=step)
                 img_grid = make_grid(fake, normalize=True)
-                writer.add_image("Fake Images", img_grid, global_step=step)
+                writer.add_image("Validation: Generator comic", img_grid, global_step=step)
                 step += 1
             generator.train()
