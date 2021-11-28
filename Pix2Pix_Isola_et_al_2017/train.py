@@ -14,7 +14,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 
-from torch.optim.lr_scheduler import CosineAnnealingLR
+# from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import make_grid
@@ -33,7 +33,7 @@ torch.backends.cudnn.fastest = True
 
 # Data
 data_dir = os.getcwd() + '\\data'
-train_dataset = Face2Comic(data_dir=data_dir+'\\train', train=True)
+train_dataset = Face2Comic(data_dir=data_dir+'\\train', train=False)
 val_dataset = Face2Comic(data_dir=data_dir+'\\val', train=False)
 
 
@@ -50,7 +50,7 @@ print(f'Number of parameters: {total_params:,}')
 epochs = 500
 batch_size = 3
 bce = nn.BCEWithLogitsLoss()
-mu = 10
+mu = 100
 L1 = nn.L1Loss()
 lr_G = 2e-4
 lr_D = 4e-6
@@ -106,7 +106,7 @@ for epoch in range(epochs):
 
         print(f"{epoch}.{batch_idx} {loss_D: .4e} {loss_G: .4e}")
 
-        if batch_idx % 1000 == 0:
+        if batch_idx % 500 == 0:
             img_grid = make_grid(face, normalize=True)
             writer.add_image("Training: Face", img_grid, global_step=step)
             img_grid = make_grid(comic, normalize=True)
@@ -129,3 +129,11 @@ for epoch in range(epochs):
                 writer.add_image("Validation: Generator comic", img_grid, global_step=step)
                 step += 1
             generator.train()
+
+checkpoint_D = {"state_dict": discriminator.state_dict(),
+                "optimizer": optim_D.state_dict()}
+checkpoint_G = {"state_dict": generator.state_dict(),
+                "optimizer": optim_G.state_dict()}
+
+torch.save(checkpoint_D, "discriminator.pt")
+torch.save(checkpoint_G, "generator.pt")
