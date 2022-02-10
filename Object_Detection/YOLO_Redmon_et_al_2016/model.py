@@ -48,47 +48,43 @@ class YOLO(nn.Module):
 
         in_channels = 3
         self.conv_blocks = nn.ModuleList([])
-        for block in conv_blocks_config:
 
-            # Refactor this block into a class method (protect it from
-            # external use, decorator?), and use again in type(list)
-            # add leaky relu
-            if type(block) is tuple:
-                kernel_size, out_channels, stride, padding = block
-                self.conv_blocks.append(nn.Conv2d(in_channels=in_channels,
-                                                  out_channels=out_channels,
-                                                  kernel_size=kernel_size,
-                                                  stride=stride,
-                                                  padding=padding,
-                                                  padding_mode='reflect',
-                                                  bias=False))
-                in_channels = out_channels
+        for blk in conv_blocks_config:
+            if type(blk) is tuple:
+                in_channels = self.__make_conv_block__(in_channels, blk)
 
-            elif type(block) is str:
+            elif type(blk) is str:
                 self.conv_blocks.append(nn.MaxPool2d(kernel_size=2, stride=2))
 
-            elif type(block) is list:
-                block1, block2, n_times = block
-                for _i in range(n_times):
-                    kernel_size, out_channels, stride, padding = block1
-                    self.conv_blocks.append(nn.Conv2d(in_channels=in_channels,
-                                                      out_channels=out_channels,
-                                                      kernel_size=kernel_size,
-                                                      stride=stride,
-                                                      padding=padding,
-                                                      padding_mode='reflect',
-                                                      bias=False))
-                    in_channels = out_channels
+            elif type(blk) is list:
+                for _i in range(blk[2]):
+                    in_channels = self.__make_conv_block__(in_channels, blk[0])
+                    in_channels = self.__make_conv_block__(in_channels, blk[1])
 
-                    kernel_size, out_channels, stride, padding = block2
-                    self.conv_blocks.append(nn.Conv2d(in_channels=in_channels,
-                                                      out_channels=out_channels,
-                                                      kernel_size=kernel_size,
-                                                      stride=stride,
-                                                      padding=padding,
-                                                      padding_mode='reflect',
-                                                      bias=False))
-                    in_channels = out_channels
+    def __make_conv_block__(self, in_channels, block):
+        """Append convolutional block and non-linearity to the network.
+
+        :param in_channels: number of input channels
+        :type in_channels: int
+        :param block: (kernel_size, out_channels, stride, padding)
+        :type block: tuple
+        :return: out_channels
+        :rtype: int
+        """
+        kernel_size, out_channels, stride, padding = block
+        self.conv_blocks.append(
+            nn.Sequential(
+                nn.Conv2d(in_channels=in_channels,
+                          out_channels=out_channels,
+                          kernel_size=kernel_size,
+                          stride=stride,
+                          padding=padding,
+                          padding_mode='reflect',
+                          bias=True),
+                nn.LeakyReLU(0.1)
+            )
+        )
+        return out_channels
 
     def forward(self, x):
         """Compute the forward pass.
@@ -117,9 +113,9 @@ if __name__ == "__main__":
     # network
     model = YOLO().to(device)
     total_params = sum(p.numel() for p in model.parameters())
-    print(f"Number of parameters for ligand network: {total_params:,}")
+    print(f"Number of parameters for YOLOv1: {total_params:,}")
 
     # output
     x_out = model(torch.randn((num_samples, in_channels, H, W), device=device))
-
+    print(x_out.shape)
     # assert x_out.shape == torch.Size([num_samples, num_classes])
