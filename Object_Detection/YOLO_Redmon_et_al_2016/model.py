@@ -15,13 +15,18 @@ import torch.nn as nn
 class YOLO(nn.Module):
     """YOLOv1.
 
-    The network has 24 convolutional layers followed by 2 fully connected
-    layers. Alternating 1x1 convolutional layers reduce the feature space from
-    preceding layers to reduce computational complexity.
+    The system divides the input image into an S x S grid and for each grid
+    cell predicts B bounding boxes, their confidence and C class probabilities.
+    The predictions are encoded as an S x S x (B * 5 + C) tensor.
     """
 
     def __init__(self):
-        """Construct the detection network."""
+        """Construct the detection network.
+
+        The network has 24 convolutional layers followed by 2 fully connected
+        layers. Alternating 1x1 convolutional layers reduce the feature space
+        from preceding layers to reduce computational complexity.
+        """
         super(YOLO, self).__init__()
         conv_blocks_config = [
             (7, 64, 2, 3),    # (kernel_size, out_channels, stride, padding)
@@ -44,8 +49,6 @@ class YOLO(nn.Module):
             (3, 1024, 1, 1)
             ]
 
-        # add fully connected layers config
-
         in_channels = 3
         self.conv_blocks = nn.ModuleList([])
 
@@ -60,6 +63,14 @@ class YOLO(nn.Module):
                 for _i in range(blk[2]):
                     in_channels = self.__make_conv_block__(in_channels, blk[0])
                     in_channels = self.__make_conv_block__(in_channels, blk[1])
+
+        self.fcs = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(1024 * 7 * 7, 4096),
+            nn.Dropout(0.5),
+            nn.LeakyReLU(0.1),
+            nn.Linear(4096, 7 * 7 * (2 * 5 + 20))  # S x S x (B * 5 + C)
+            )
 
     def __make_conv_block__(self, in_channels, block):
         """Append convolutional block and non-linearity to the network.
@@ -89,16 +100,15 @@ class YOLO(nn.Module):
     def forward(self, x):
         """Compute the forward pass.
 
-        :param x: 448x448 rgb input image.
-        :type x: TYPE
-        :return: 7x7x30 tensor of probabilities.
-        :rtype: TYPE
+        :param x: 448x448 rgb batch of input images.
+        :type x: torch.Tensor
+        :return: 7*7*30 tensor of probabilities.
+        :rtype: torch.Tensor
         """
         for block in self.conv_blocks:
             x = block(x)
-        # for block in self.fc_layers:
-        #     x = block(x)
-        return x
+
+        return self.fcs(x)
 
 
 if __name__ == "__main__":
@@ -117,5 +127,4 @@ if __name__ == "__main__":
 
     # output
     x_out = model(torch.randn((num_samples, in_channels, H, W), device=device))
-    print(x_out.shape)
-    # assert x_out.shape == torch.Size([num_samples, num_classes])
+    assert x_out.shape == torch.Size([1, 1470])
