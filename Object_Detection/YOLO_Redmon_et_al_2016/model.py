@@ -116,7 +116,7 @@ if __name__ == "__main__":
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # input batch
-    num_samples = 2**0
+    num_samples = 2**1
     in_channels = 3
     H, W = 448, 448
 
@@ -127,4 +127,4 @@ if __name__ == "__main__":
 
     # output
     x_out = model(torch.randn((num_samples, in_channels, H, W), device=device))
-    assert x_out.shape == torch.Size([1, 1470])
+    assert x_out.shape == torch.Size([num_samples, 1470])
