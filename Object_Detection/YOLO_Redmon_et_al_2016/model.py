@@ -20,12 +20,21 @@ class YOLO(nn.Module):
     The predictions are encoded as an S x S x (B * 5 + C) tensor.
     """
 
-    def __init__(self):
+    def __init__(self, S=7, B=2, C=20):
         """Construct the detection network.
 
         The network has 24 convolutional layers followed by 2 fully connected
         layers. Alternating 1x1 convolutional layers reduce the feature space
         from preceding layers to reduce computational complexity.
+
+        :param S: Number of grid cells to split the image for each direction,
+        defaults to 7
+        :type S: int, optional
+        :param B: Number of predicted bounding boxes per gird cell,
+        defaults to 2
+        :type B: int, optional
+        :param C: Number of class labels, defaults to 20
+        :type C: int, optional
         """
         super(YOLO, self).__init__()
         conv_blocks_config = [
@@ -69,7 +78,7 @@ class YOLO(nn.Module):
             nn.Linear(1024 * 7 * 7, 4096),
             nn.Dropout(0.5),
             nn.LeakyReLU(0.1),
-            nn.Linear(4096, 7 * 7 * (2 * 5 + 20))  # S x S x (B * 5 + C)
+            nn.Linear(4096, S * S * (B * 5 + C))
             )
 
     def __make_conv_block__(self, in_channels, block):
@@ -100,9 +109,9 @@ class YOLO(nn.Module):
     def forward(self, x):
         """Compute the forward pass.
 
-        :param x: 448x448 rgb batch of input images.
+        :param x: A 448x448 rgb batch of input images.
         :type x: torch.Tensor
-        :return: 7*7*30 tensor of probabilities.
+        :return: A tensor of probabilities of shape (N, 7*7*30).
         :rtype: torch.Tensor
         """
         for block in self.conv_blocks:
