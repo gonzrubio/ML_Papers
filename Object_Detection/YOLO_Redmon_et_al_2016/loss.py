@@ -20,25 +20,32 @@ class YOLOv1Loss(nn.Module):
     respective class label and conditional probability.
     """
 
-    def __init__(self, lambdas=[5., 0.5], reduction='sum'):
+    def __init__(self, lambdas, reduction='sum'):
         """Construct the criterion.
 
-        :param lambdas: DESCRIPTION, defaults to [5., 0.5]
-        :type lambdas: TYPE, optional
-        :param reduction: DESCRIPTION, defaults to 'sum'
-        :type reduction: TYPE, optional
-        :return: DESCRIPTION
-        :rtype: TYPE
+        :param lambdas: A manual rescaling weight given to the loss for
+        bounding box coordinate predictions and to the loss for boxes that
+        don't contain objects, i.e. torch.Tensor([5., .5], device=DEVICE).
+        :type lambdas: list
+        :param reduction: pecifies the reduction to apply to the output:
+            'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
+            'mean': the sum of the output will be divided by the number of
+            elements in the output, 'sum': the output will be summed.
+            Defaults to 'sum'.
+        :type reduction: str, optional
         """
         super(YOLOv1Loss, self).__init__()
+        self.lambdas = lambdas
+        self.reduction = reduction
 
     def forward(self, x):
         """Apply the criterion to the predictions and ground truths.
 
-        :param x: DESCRIPTION
-        :type x: TYPE
-        :return: DESCRIPTION
-        :rtype: TYPE
+        :param x: Predicted probabilities of shape (N, 1470).
+        :type x: torch.Tensor
+        :return: The computed loss between input and target. If `reduction` is
+        `none`, shape (N) otherwise, scalar.
+        :rtype: torch.Tensor
         """
         # Apply the functional form
         pass
