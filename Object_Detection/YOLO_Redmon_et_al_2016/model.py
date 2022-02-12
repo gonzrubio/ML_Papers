@@ -111,7 +111,7 @@ class YOLO(nn.Module):
 
         :param x: A 448x448 rgb batch of input images.
         :type x: torch.Tensor
-        :return: A tensor of probabilities of shape (N, 7*7*30).
+        :return: A tensor of probabilities of shape (N, S*S*(B*5+C)).
         :rtype: torch.Tensor
         """
         for block in self.conv_blocks:

@@ -35,13 +35,15 @@ class YOLOv1Loss(nn.Module):
         :type reduction: str, optional
         """
         super(YOLOv1Loss, self).__init__()
-        self.lambdas = lambdas
+        self.lambda_coord = lambdas[0]
+        self.lambda_noobj = lambdas[1]
         self.reduction = reduction
+        self.mse = nn.MSELoss(reduction=reduction)
 
     def forward(self, x):
         """Apply the criterion to the predictions and ground truths.
 
-        :param x: Predicted probabilities of shape (N, 1470).
+        :param x: Predicted probabilities of shape (N, S*S*(B*5+C)).
         :type x: torch.Tensor
         :return: The computed loss between input and target. If `reduction` is
         `none`, shape (N) otherwise, scalar.
