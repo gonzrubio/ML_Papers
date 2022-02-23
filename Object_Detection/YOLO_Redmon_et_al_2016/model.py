@@ -130,10 +130,14 @@ if __name__ == "__main__":
     H, W = 448, 448
 
     # network
-    model = YOLO().to(device)
+    S = 7
+    B = 2
+    C = 20
+
+    model = YOLO(S=S, B=B, C=C).to(device)
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Number of parameters for YOLOv1: {total_params:,}")
 
     # output
     x_out = model(torch.randn((num_samples, in_channels, H, W), device=device))
-    assert x_out.shape == torch.Size([num_samples, 1470])
+    assert x_out.shape == torch.Size([num_samples, S*S*(B*5+C)])
