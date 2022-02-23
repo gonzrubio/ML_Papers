@@ -20,13 +20,21 @@ class YOLOv1Loss(nn.Module):
     respective class label and conditional probability.
     """
 
-    def __init__(self, lambdas, reduction='sum'):
+    def __init__(self, lambdas, S=7, B=2, C=20, reduction='sum'):
         """Construct the criterion.
 
         :param lambdas: A manual rescaling weight given to the loss for
         bounding box coordinate predictions and to the loss for boxes that
         don't contain objects, i.e. torch.Tensor([5., .5], device=DEVICE).
         :type lambdas: list
+        :param S: Number of grid cells to split the image for each direction,
+        defaults to 7
+        :type S: int, optional
+        :param B: Number of predicted bounding boxes per gird cell,
+        defaults to 2
+        :type B: int, optional
+        :param C: Number of class labels, defaults to 20
+        :type C: int, optional
         :param reduction: pecifies the reduction to apply to the output:
             'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
             'mean': the sum of the output will be divided by the number of
@@ -37,20 +45,28 @@ class YOLOv1Loss(nn.Module):
         super(YOLOv1Loss, self).__init__()
         self.lambda_coord = lambdas[0]
         self.lambda_noobj = lambdas[1]
+        self.S = S
+        self.B = B
+        self.C = C
         self.reduction = reduction
         self.mse = nn.MSELoss(reduction=reduction)
 
-    def forward(self, x):
+    def forward(self, x_pred, x_true):
         """Apply the criterion to the predictions and ground truths.
 
-        :param x: Predicted probabilities of shape (N, S*S*(B*5+C)).
+        :param x_pred: Predicted probabilities of shape (N, S*S*(B*5+C)).
         :type x: torch.Tensor
+        :param x_true: Ground truths of shape ????.
+        :type x: torch.Tensor ?????
         :return: The computed loss between input and target. If `reduction` is
         `none`, shape (N) otherwise, scalar.
-        :rtype: torch.Tensor
+        :rtype: torch.Tensorq
         """
         # Apply the functional form
-        pass
+        x_pred = x_pred.reshape(-1, self.S, self.S, self.C + self.B * 5)
+
+        # IoU for the B predicted and target bounding boxes
+        return x_pred
 
 
 if __name__ == "__main__":
