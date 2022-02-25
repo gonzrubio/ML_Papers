@@ -23,10 +23,6 @@ class YOLOv1Loss(nn.Module):
     def __init__(self, lambdas, S=7, B=2, C=20, reduction='sum'):
         """Construct the criterion.
 
-        :param lambdas: A manual rescaling weight given to the loss for
-        bounding box coordinate predictions and to the loss for boxes that
-        don't contain objects, i.e. torch.Tensor([5., .5], device=DEVICE).
-        :type lambdas: list
         :param S: Number of grid cells to split the image for each direction,
         defaults to 7
         :type S: int, optional
@@ -42,29 +38,39 @@ class YOLOv1Loss(nn.Module):
             Defaults to 'sum'.
         :type reduction: str, optional
         """
-        super(YOLOv1Loss, self).__init__()
-        self.lambda_coord = lambdas[0]
-        self.lambda_noobj = lambdas[1]
+        super(YOLOv1Loss, self).__init__()        
         self.S = S
         self.B = B
         self.C = C
-        self.reduction = reduction
+        # self.reduction = reduction
         self.mse = nn.MSELoss(reduction=reduction)
+
+        # manual rescaling weights given to the sum of squared errors of
+        # different components in the predicted and ground truth tensors
+        self.lambda_obj_coord = lambdas[0]
+        self.lambda_obj_p = 1
+        self.lamba_noobj_coord = 0
+        self.lambda_noobj_p = lambdas[1]
+        self.lambda_c = 1
 
     def forward(self, x_pred, x_true):
         """Apply the criterion to the predictions and ground truths.
 
-        :param x_pred: Predicted probabilities of shape (N, S*S*(B*5+C)).
+        :param x_pred: Predicted tensor of shape (N, S*S*(B*5+C)).
         :type x: torch.Tensor
         :param x_true: Ground truths of shape ????.
         :type x: torch.Tensor ?????
         :return: The computed loss between input and target. If `reduction` is
         `none`, shape (N) otherwise, scalar.
-        :rtype: torch.Tensorq
+        :rtype: torch.Tensor
         """
-        # Apply the functional form
-        x_pred = x_pred.reshape(-1, self.S, self.S, self.C + self.B * 5)
+        # Apply the functional form of operations where possible
+        x_pred = x_pred.reshape(-1, self.S, self.S, self.B * 5 + self.C)
+        # looks like doing mse of the output volume, look for efficient way
+        # to compute the volume and check how the labels are stored sparse
+        # format?
 
+        # maybe the nms 
         # IoU for the B predicted and target bounding boxes
         return x_pred
 
