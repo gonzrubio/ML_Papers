@@ -15,8 +15,10 @@ import torch.nn as nn
 class YOLO(nn.Module):
     """YOLOv1.
 
-    The system divides the input image into an S x S grid and for each grid
-    cell predicts B bounding boxes, their confidence and C class probabilities.
+    The system divides the input RGB images (N, 3, 448, 448) into an S x S grid
+    and for each grid cell predicts B bounding boxes, their confidence and C
+    class probabilities.
+
     The predictions are encoded as an S x S x (B * 5 + C) tensor.
     """
 
@@ -36,7 +38,9 @@ class YOLO(nn.Module):
         :param C: Number of class labels, defaults to 20
         :type C: int, optional
         """
+
         super(YOLO, self).__init__()
+
         conv_blocks_config = [
             (7, 64, 2, 3),    # (kernel_size, out_channels, stride, padding)
             "M",              # 2x2-stride and 2x2-kernel_size maxpool
@@ -60,6 +64,7 @@ class YOLO(nn.Module):
 
         in_channels = 3
         self.conv_blocks = nn.ModuleList([])
+        self.S, self.B, self.C = S, B, C
 
         for blk in conv_blocks_config:
             if type(blk) is tuple:
@@ -109,23 +114,25 @@ class YOLO(nn.Module):
     def forward(self, x):
         """Compute the forward pass.
 
-        :param x: A 448x448 rgb batch of input images.
+        :param x: A batch of RGB images (N, 3, 448, 448).
         :type x: torch.Tensor
-        :return: A tensor of probabilities of shape (N, S*S*(B*5+C)).
+        :return: The predictions encoded in a (N, S, S, B*5 + C) volume.
         :rtype: torch.Tensor
         """
         for block in self.conv_blocks:
             x = block(x)
 
-        return self.fcs(x)
+        x = self.fcs(x)
+        
+        return torch.reshape(x, (-1, self.S, self.S, self.B * 5 + self.C))
 
 
 if __name__ == "__main__":
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    # input batch
-    num_samples = 2**1
+    # input
+    N = 2**1
     in_channels = 3
     H, W = 448, 448
 
@@ -139,5 +146,5 @@ if __name__ == "__main__":
     print(f"Number of parameters for YOLOv1: {total_params:,}")
 
     # output
-    x_out = model(torch.randn((num_samples, in_channels, H, W), device=device))
-    assert x_out.shape == torch.Size([num_samples, S*S*(B*5+C)])
+    x_out = model(torch.randn((N, in_channels, H, W), device=device))
+    assert x_out.shape == torch.Size([N, S, S, B * 5 + C])
