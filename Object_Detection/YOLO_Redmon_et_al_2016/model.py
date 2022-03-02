@@ -16,8 +16,8 @@ class YOLO(nn.Module):
     """YOLOv1.
 
     The system divides the input RGB images (N, 3, 448, 448) into an S x S grid
-    and for each grid cell predicts B bounding boxes, their confidence and C
-    class probabilities.
+    and for each grid cell predicts B bounding boxes and the probability of
+    an object being in that predictor, and C class probabilities.
 
     The predictions are encoded as an S x S x (B * 5 + C) tensor.
     """
@@ -114,6 +114,12 @@ class YOLO(nn.Module):
     def forward(self, x):
         """Compute the forward pass.
 
+        The bounding box centers are given as an offset of the grid cell, thus
+        being netween zero and one. The width and heights are normalized to the
+        size of the image, also between zero and one. The C elements in the
+        prediction responsible for denoting the class of the object are
+        returned as a probability distribution.
+
         :param x: A batch of RGB images (N, 3, 448, 448).
         :type x: torch.Tensor
         :return: The predictions encoded in a (N, S, S, B*5 + C) volume.
@@ -123,8 +129,15 @@ class YOLO(nn.Module):
             x = block(x)
 
         x = self.fcs(x)
+        x = torch.reshape(x, (-1, self.S, self.S, self.B * 5 + self.C))
         
-        return torch.reshape(x, (-1, self.S, self.S, self.B * 5 + self.C))
+        # center_x, center_y, height, width for all bounding boxes
+        x[..., :self.B * 5] = torch.sigmoid(x[..., :self.B * 5])
+
+        # class probabilities
+        x[..., self.B * 5:] = torch.softmax(x[..., self.B * 5:], dim=-1)
+
+        return x
 
 
 if __name__ == "__main__":
