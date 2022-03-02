@@ -86,6 +86,9 @@ class YOLO(nn.Module):
             nn.Linear(4096, S * S * (B * 5 + C))
             )
 
+        self.sigmoid = nn.Sigmoid()
+        self.softmax = nn.Softmax(dim=-1)
+
     def __make_conv_block__(self, in_channels, block):
         """Append convolutional block and non-linearity to the network.
 
@@ -132,10 +135,10 @@ class YOLO(nn.Module):
         x = torch.reshape(x, (-1, self.S, self.S, self.B * 5 + self.C))
         
         # center_x, center_y, height, width for all bounding boxes
-        x[..., :self.B * 5] = torch.sigmoid(x[..., :self.B * 5])
+        x[..., :self.B * 5] = self.sigmoid(x[..., :self.B * 5])
 
         # class probabilities
-        x[..., self.B * 5:] = torch.softmax(x[..., self.B * 5:], dim=-1)
+        x[..., self.B * 5:] = self.softmax(x[..., self.B * 5:])
 
         return x
 
