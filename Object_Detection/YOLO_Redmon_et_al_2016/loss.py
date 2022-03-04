@@ -8,8 +8,10 @@ Created on Tue Feb 8 21:38:56 2022
 """
 
 
+import random
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 def IoU(bbox_pred, bbox_true):
@@ -91,27 +93,81 @@ class YOLOv1Loss(nn.Module):
         `none`, shape (N) otherwise, scalar.
         :rtype: torch.Tensor
         """
-        # Apply torch/Functional operations where possible
+        #  mask_obj = y_true > 0   # maintains the same shape as y_true
+        # produces shape [num_objects, 5 | S*S*(B*5+C)]
+        mask_obj = (y_true > 0)[...,0]
+        mask_noobj = torch.logical_not(mask_obj)
 
-        # find the bounding box b responsible for detecting the object
-        # by computing the confidence score of the detectors
-        conf = torch.empty(size=(y_pred.shape[0], self.S, self.S, self.B))
-        for b in range(self.B):
-            conf[...,b:b+1] = IoU(y_pred[..., b*5+1:b*5+5], y_true[..., :-1])
-            conf[...,b:b+1] *= y_pred[..., b*5:b*5+1]
+        # y_true_obj = y_true[mask_obj].reshape(-1, 5)   # [num_objects, 5]
+        y_true_obj = y_true[mask_obj]       # [num_objects, 5]
+        # y_true_noobj = y_true[mask_noobj]   # [S^2 - num_objects, 5]
 
-        # confidence = ious * 
-        detector = torch.max(conf, dim=-1)[1].unsqueeze(-1)
+        # y_pred_obj = y_pred[mask_obj[..., 0]]
+        y_pred_obj = y_pred[mask_obj]       # [num_objects, S*S*(B*5+C)]
+        y_pred_noobj = y_pred[mask_noobj]   # [S^2 - num_objects, 5]
 
-        # mask for grid cells that contain an object
-        obj = (y_true[..., 0] > 0).int().unsqueeze(-1)
+        # now need to find max IoU between all B bbouning boxes and the targets
+        # returns shape [num_objects, len([conf_score, cx, cy, w, h]) + C]    
+        y_pred_obj = self._maxIoU(y_true_obj, y_pred_obj)
 
-        # error for the bbox center
-        # find way to construct the tensor with sampled detectors, maybe even retrace
-        # to detector. would flat detector help index??
-        loss = obj *  y_true[..., :2], y_pred[..., detector*5+1:detector*5+3]
 
-        return obj
+        # loss coord
+        y_true_obj[:, 2:4] = torch.sqrt(y_true_obj[:, 2:4])
+        y_pred_obj[:, 3:5] = torch.sqrt(y_pred_obj[:, 3:5] + 1e-6)
+
+        lambda_coord = 5
+        loss_coord = lambda_coord * F.mse_loss(
+            y_pred_obj[:, 1:5], y_true_obj[:, :4], reduction='sum'
+            )
+
+
+        # loss confidence scores
+        loss_conf_obj = F.mse_loss(
+            torch.ones_like(y_pred_obj[:, 0]), y_pred_obj[:, 0], reduction='sum'
+            )
+
+        lambda_noobj = 0.5
+        y_pred_noobj = y_pred_noobj[:, :-C].reshape(-1, 5)[:, 0]  # [-1, 5]
+
+        loss_conf_noobj = lambda_noobj * F.mse_loss(
+            torch.zeros_like(y_pred_noobj), y_pred_noobj, reduction='sum'
+            )
+
+
+        # one hot encoding loss
+        loss_class = F.mse_loss(
+            F.one_hot(y_true_obj[:, -1].long(), num_classes=20),
+            y_pred_obj[..., -C:]
+            )
+
+
+        # total loss
+        loss = loss_coord + loss_conf_obj + loss_conf_noobj + loss_class
+
+        # # Apply torch/Functional operations where possible
+
+        # # find the bounding box b responsible for detecting the object
+        # # by computing the confidence score of the detectors
+        # conf = torch.empty(size=(y_pred.shape[0], self.S, self.S, self.B))
+        # for b in range(self.B):
+        #     conf[...,b:b+1] = IoU(y_pred[..., b*5+1:b*5+5], y_true[..., :-1])
+        #     conf[...,b:b+1] *= y_pred[..., b*5:b*5+1]
+
+        # # confidence = ious * 
+        # detector = torch.max(conf, dim=-1)[1].unsqueeze(-1)
+
+        # # mask for grid cells that contain an object
+        # obj = (y_true[..., 0] > 0).int().unsqueeze(-1)
+
+        # # error for the bbox center
+        # # find way to construct the tensor with sampled detectors, maybe even retrace
+        # # to detector. would flat detector help index??
+        # loss = obj *  y_true[..., :2], y_pred[..., detector*5+1:detector*5+3]
+
+        return loss
+
+    def _maxIoU(y_true_obj, y_pred_obj):
+        return y_pred_obj[..., 0: 5+ 20]
 
 
 if __name__ == "__main__":
@@ -124,17 +180,19 @@ if __name__ == "__main__":
     C = 20
     num_objects = 7
 
-    loss = YOLOv1Loss(lambdas=[5, 0.5], S=S, B=B, C=C, reduction='sum')
-
-    # dummy target batch, class is encoded as an integer in [1, num_classes]
+    # dummy target batch [N, S, S, len([center_x, center_y, w, h, class_num])]
+    # and dummy predicted volume
     y_true = torch.zeros((N, S, S, 5))
+    y_pred = torch.rand((N, S, S, B * 5 + C))
 
-    for batch in range(N):
+    for b in range(N):
         for obj in torch.randint(1, S**2, (num_objects,)):
-            print(obj)
-            x, y = obj // S, obj % S        
-            y_true[batch, x, y, :-1] = torch.rand(4)
-            y_true[batch, x, y, -1] = torch.randint(1, C, (1, ))
+            cell = random.randint(0, S**2 - 1)
+            row, col = cell // 7, cell % 7
+            y_true[b, row, col, :-1] = torch.rand(size=(4, ))
+            y_true[b, row, col, -1] = torch.randint(low=1, high=C, size=(1, ))
 
     
-    print(loss(torch.rand((N, S, S, B * 5 + C)), y_true))
+    loss = YOLOv1Loss(lambdas=[5, 0.5], S=S, B=B, C=C, reduction='sum')
+
+    print(loss(y_pred, y_true))
