@@ -128,7 +128,7 @@ class YOLOv1Loss(nn.Module):
 
         # one hot encoding loss
         loss_class = F.mse_loss(
-            F.one_hot(y_true_obj[:, -1].long(), num_classes=20), y_pred_obj[..., -C:],
+            F.one_hot(y_true_obj[:, -1].long(), num_classes=self.C), y_pred_obj[..., -C:],
             reduction=self.reduction
             )
 
@@ -139,31 +139,35 @@ class YOLOv1Loss(nn.Module):
         # find the bounding box b responsible for detecting the object
         # by computing the confidence score of the detectors
 
-        # conf = torch.empty(size=(y_pred.shape[0], self.S, self.S, self.B))
-        # for b in range(self.B):
-        #     conf[...,b:b+1] = IoU(y_pred[..., b*5+1:b*5+5], y_true[..., :-1])
-        #     conf[...,b:b+1] *= y_pred[..., b*5:b*5+1]
+        conf = torch.empty((y_pred_obj.shape[0], self.B), device=y_pred_obj.device)
+        for b in range(self.B):
+            conf[..., b:b+1] = IoU(y_pred_obj[..., b*5+1:b*5+5], y_true_obj[..., :-1])
+            conf[..., b:b+1] *= y_pred_obj[..., b*5:b*5+1]
 
-        # confidence = ious * 
-        # detector = torch.max(conf, dim=-1)[1].unsqueeze(-1)        
+        # mask for bounding box with highest confidence score 
+        mask_predictor = torch.zeros_like(y_pred_obj, dtype=torch.bool)
+        for row, bbox in enumerate(torch.max(conf, dim=-1)[1]):
+            mask_predictor[row, bbox:bbox+5] = True
+            mask_predictor[row, -self.C:] = True
 
-        return y_pred_obj[..., 0: 5+ 20]
+        return y_pred_obj[mask_predictor].reshape(-1, 5 + self.C)
 
 
 if __name__ == "__main__":
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    N = 50
+    N = 2**3
     S = 7
     B = 2
     C = 20
-    num_objects = 7
+    num_objects = 13
 
     # dummy target batch [N, S, S, len([center_x, center_y, w, h, class_num])]
-    # and dummy predicted volume
+    # and dummy predicted volume [N, S, S, S*S*(B*5+C)]
     y_true = torch.zeros((N, S, S, 5), device=device)
     y_pred = torch.rand((N, S, S, B * 5 + C), device=device)
+    # y_pred = torch.zeros((N, S, S, B * 5 + C), device=device)
 
     for b in range(N):
         for obj in torch.randint(1, S**2, (num_objects,)):
@@ -171,6 +175,12 @@ if __name__ == "__main__":
             row, col = cell // 7, cell % 7
             y_true[b, row, col, :-1] = torch.rand(size=(4, ))
             y_true[b, row, col, -1] = torch.randint(low=1, high=C, size=(1, ))
+
+            # perfect prediction
+            # bbox = torch.randint(low=0, high=B-1, size=(1, ))
+            # y_pred[b, row, col, bbox * 5] = 1.
+            # y_pred[b, row, col, bbox * 5 + 1:bbox * 5 + 6] = y_true[b, row, col, :-1]
+            # y_true[b, row, col, -C:] = F.one_hot(y_true[b, row, col, -1], num_classes=C)
 
     
     loss = YOLOv1Loss(lambdas=[5, 0.5], S=S, B=B, C=C, reduction='sum')
