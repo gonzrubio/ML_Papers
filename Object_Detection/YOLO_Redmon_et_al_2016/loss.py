@@ -87,14 +87,14 @@ class YOLOv1Loss(nn.Module):
 
         :param x_pred: Predicted tensor of shape (N, S*S*(B*5+C)).
         :type x: torch.Tensor
-        :param x_true: Ground truths of shape ????.
+        :param x_true: Ground truths of shape ????.normalized 4-dimensional bounding box b and an integer class id 𝕔.
         :type x: torch.Tensor ?????
         :return: The computed loss between input and target. If `reduction` is
         `none`, shape (N) otherwise, scalar.
         :rtype: torch.Tensor
         """
         # produces shape [num_objects, 5 | S*S*(B*5+C)]
-        mask_obj = (y_true > 0)[...,0]
+        mask_obj = (y_true > 0)[..., -1]
         mask_noobj = torch.logical_not(mask_obj)
 
         y_true_obj = y_true[mask_obj]       # [num_objects, 5]
@@ -120,7 +120,7 @@ class YOLOv1Loss(nn.Module):
             )
 
         lambda_noobj = 0.5
-        y_pred_noobj = y_pred_noobj[:, :-C].reshape(-1, 5)[:, 0]  # [-1, 5]
+        y_pred_noobj = y_pred_noobj[:, :-C].reshape(-1, 5)[:, 0]  # [empty cells * B]
 
         loss_conf_noobj = lambda_noobj * F.mse_loss(
             torch.zeros_like(y_pred_noobj), y_pred_noobj, reduction=self.reduction
@@ -136,9 +136,17 @@ class YOLOv1Loss(nn.Module):
         return loss / float(y_true.shape[0])
 
     def _maxIoU(self, y_true_obj, y_pred_obj):
+        """
         # find the bounding box b responsible for detecting the object
         # by computing the confidence score of the detectors
+        :param y_true_obj: DESCRIPTION
+        :type y_true_obj: TYPE
+        :param y_pred_obj: DESCRIPTION
+        :type y_pred_obj: TYPE
+        :return: DESCRIPTION
+        :rtype: TYPE
 
+        """
         conf = torch.empty((y_pred_obj.shape[0], self.B), device=y_pred_obj.device)
         for b in range(self.B):
             conf[..., b:b+1] = IoU(y_pred_obj[..., b*5+1:b*5+5], y_true_obj[..., :-1])
@@ -157,7 +165,7 @@ if __name__ == "__main__":
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    N = 2**3
+    N = 2**5
     S = 7
     B = 2
     C = 20
@@ -172,7 +180,7 @@ if __name__ == "__main__":
     for b in range(N):
         for obj in torch.randint(1, S**2, (num_objects,)):
             cell = random.randint(0, S**2 - 1)
-            row, col = cell // 7, cell % 7
+            row, col = cell // S, cell % S
             y_true[b, row, col, :-1] = torch.rand(size=(4, ))
             y_true[b, row, col, -1] = torch.randint(low=1, high=C, size=(1, ))
 
