@@ -108,7 +108,7 @@ class YOLOv1Loss(nn.Module):
 
         # loss coord
         y_true_obj[:, 2:4] = torch.sqrt(y_true_obj[:, 2:4])
-        y_pred_obj[:, 3:5] = torch.sqrt(y_pred_obj[:, 3:5] + 1e-6)
+        y_pred_obj[:, 3:5] = torch.sqrt(y_pred_obj[:, 3:5])
 
         lambda_coord = 5
         loss_coord = lambda_coord * F.mse_loss(
@@ -129,7 +129,8 @@ class YOLOv1Loss(nn.Module):
 
         # one hot encoding loss
         loss_class = F.mse_loss(
-            F.one_hot(y_true_obj[:, -1].long(), num_classes=self.C), y_pred_obj[..., -C:],
+            F.one_hot(y_true_obj[:, -1].long() - 1, num_classes=self.C),
+            y_pred_obj[..., -C:],
             reduction=self.reduction
             )
 
@@ -175,21 +176,21 @@ if __name__ == "__main__":
     # dummy target batch [N, S, S, len([center_x, center_y, w, h, class_num])]
     # and dummy predicted volume [N, S, S, S*S*(B*5+C)]
     y_true = torch.zeros((N, S, S, 5), device=device)
-    y_pred = torch.rand((N, S, S, B * 5 + C), device=device)
-    # y_pred = torch.zeros((N, S, S, B * 5 + C), device=device) # perfect prediction
+    # y_pred = torch.rand((N, S, S, B * 5 + C), device=device)
+    y_pred = torch.zeros((N, S, S, B * 5 + C), device=device) # perfect prediction
 
     for b in range(N):
         for obj in torch.randint(1, S**2, (num_objects,)):
             cell = random.randint(0, S**2 - 1)
             row, col = cell // S, cell % S
             y_true[b, row, col, :-1] = torch.rand(size=(4, ))
-            y_true[b, row, col, -1] = torch.randint(low=0, high=C-1, size=(1, ))
+            y_true[b, row, col, -1] = torch.randint(low=1, high=C, size=(1, ))
 
             # perfect prediction
-            # bbox = torch.randint(low=0, high=B-1, size=(1, ))
-            # y_pred[b, row, col, bbox * 5] = 1.
-            # y_pred[b, row, col, bbox * 5 + 1:bbox * 5 + 5] = y_true[b, row, col, :-1]
-            # y_pred[b, row, col, -C:] = F.one_hot(y_true[b, row, col, -1].long(), num_classes=C)
+            bbox = torch.randint(low=0, high=B-1, size=(1, ))
+            y_pred[b, row, col, bbox * 5] = 1.
+            y_pred[b, row, col, bbox * 5 + 1:bbox * 5 + 5] = y_true[b, row, col, :-1]
+            y_pred[b, row, col, -C:] = F.one_hot(y_true[b, row, col, -1].long()-1, num_classes=C)
 
     
     loss = YOLOv1Loss(lambdas=[5, 0.5], S=S, B=B, C=C, reduction='sum')
