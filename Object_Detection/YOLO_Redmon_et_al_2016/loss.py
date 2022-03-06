@@ -15,14 +15,15 @@ import torch.nn.functional as F
 
 
 def IoU(bbox_pred, bbox_true):
-    """
-    Calculates intersection over union
-    Parameters:
-        boxes_preds (tensor): Predictions of Bounding Boxes (BATCH_SIZE, 4)
-        boxes_labels (tensor): Correct labels of Bounding Boxes (BATCH_SIZE, 4)
-        box_format (str): midpoint/corners, if boxes (x,y,w,h) or (x1,y1,x2,y2)
-    Returns:
-        tensor: Intersection over union for all examples
+    """Compute the intersection over union.
+
+    :param bbox_pred: Predicted bounding boxes (num_boxes, 4)
+    :type bbox_pred: torch.Tensor
+    :param bbox_true: True bounding boxes (num_boxes, 4)
+    :type bbox_true: torch.Tensor
+    :return: The intersection over union for all pairs of boxes
+    :rtype: torch.Tensor
+
     """
     # define the rectangles by their top-left and bottom-right coordinates
     box1_x1 = bbox_pred[..., 0:1] - bbox_pred[..., 2:3] / 2
@@ -59,8 +60,10 @@ class YOLOv1Loss(nn.Module):
     def __init__(self, lambdas=[5, 0.5], S=7, B=2, C=20, reduction='sum'):
         """Construct the criterion.
 
-        # manual rescaling weights given to the sum of squared errors of
-        # different components in the predicted and ground truth tensors
+        :param lambdas: Manual rescaling weights given to the loss from
+        bounding box coordinate predictions and for boxes that don't contain
+        objects, defaults to [5, 0.5]
+        :type lambdas: list, optional
         :param S: Number of grid cells to split the image for each direction,
         defaults to 7
         :type S: int, optional
@@ -86,10 +89,11 @@ class YOLOv1Loss(nn.Module):
     def forward(self, y_pred, y_true):
         """Apply the criterion to the predictions and ground truths.
 
-        :param x_pred: Predicted tensor of shape (N, S*S*(B*5+C)).
-        :type x: torch.Tensor
-        :param x_true: Ground truths of shape ????.normalized 4-dimensional bounding box b and an integer class id 𝕔.
-        :type x: torch.Tensor ?????
+        :param y_pred: Predicted tensor of shape (N, S, S, B * 5 + C).
+        :type y_pred: torch.Tensor
+        :param y_true: Ground truths of shape (N, S, S, 5 + C), the normalized
+        4-dimensional bounding box center, width and height, and the class id.
+        :type y_true: torch.Tensor
         :return: The computed loss between input and target. If `reduction` is
         `none`, shape (N) otherwise, scalar.
         :rtype: torch.Tensor
@@ -102,9 +106,9 @@ class YOLOv1Loss(nn.Module):
         y_pred_obj = y_pred[mask_obj]       # [num_objects, S*S*(B*5+C)]
         y_pred_noobj = y_pred[mask_noobj]   # [S^2 - num_objects, 5]
 
-        # finds detector with max IoU between all B bbouning boxes and targets
-        # returns shape [num_objects, len([conf_score, cx, cy, w, h]) + C]    
-        y_pred_obj = self._maxIoU(y_true_obj, y_pred_obj)
+        # finds detector with the highest confidence score between all 
+        # bouning boxes and targets.
+        y_pred_obj = self._max_confidence_score(y_true_obj, y_pred_obj)
 
         # loss coord
         y_true_obj[:, 2:4] = torch.sqrt(y_true_obj[:, 2:4])
@@ -137,17 +141,15 @@ class YOLOv1Loss(nn.Module):
         loss = loss_coord + loss_conf_obj + loss_conf_noobj + loss_class
         return loss / float(y_true.shape[0])
 
-    def _maxIoU(self, y_true_obj, y_pred_obj):
-        """
-        # find the bounding box b responsible for detecting the object
-        # by computing the confidence score of the detectors
-        :param y_true_obj: DESCRIPTION
-        :type y_true_obj: TYPE
-        :param y_pred_obj: DESCRIPTION
-        :type y_pred_obj: TYPE
-        :return: DESCRIPTION
-        :rtype: TYPE
+    def _max_confidence_score(self, y_true_obj, y_pred_obj):
+        """Find the bounding box b responsible for detecting the object.
 
+        :param y_true_obj: Grid cells containing an object [num_objects, 5]
+        :type y_true_obj: torch.Tensor
+        :param y_pred_obj: Predictions for grid cells containing an object [num_objects, B*5+C]
+        :type y_pred_obj: torch.Tensor
+        :return: y_pred_obj of shape [num_objects, len([conf_score, cx, cy, w, h]) + C]    
+        :rtype: torch.Tensor
         """
         conf = torch.empty((y_pred_obj.shape[0], self.B), device=y_pred_obj.device)
         for b in range(self.B):
