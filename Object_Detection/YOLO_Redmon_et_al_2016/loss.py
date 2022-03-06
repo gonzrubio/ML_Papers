@@ -24,27 +24,28 @@ def IoU(bbox_pred, bbox_true):
     Returns:
         tensor: Intersection over union for all examples
     """
-
+    # define the rectangles by their top-left and bottom-right coordinates
     box1_x1 = bbox_pred[..., 0:1] - bbox_pred[..., 2:3] / 2
     box1_y1 = bbox_pred[..., 1:2] - bbox_pred[..., 3:4] / 2
     box1_x2 = bbox_pred[..., 0:1] + bbox_pred[..., 2:3] / 2
     box1_y2 = bbox_pred[..., 1:2] + bbox_pred[..., 3:4] / 2
 
-    box2_x1 = bbox_pred[..., 0:1] - bbox_pred[..., 2:3] / 2
-    box2_y1 = bbox_pred[..., 1:2] - bbox_pred[..., 3:4] / 2
-    box2_x2 = bbox_pred[..., 0:1] + bbox_pred[..., 2:3] / 2
-    box2_y2 = bbox_pred[..., 1:2] + bbox_pred[..., 3:4] / 2
+    box2_x1 = bbox_true[..., 0:1] - bbox_true[..., 2:3] / 2
+    box2_y1 = bbox_true[..., 1:2] - bbox_true[..., 3:4] / 2
+    box2_x2 = bbox_true[..., 0:1] + bbox_true[..., 2:3] / 2
+    box2_y2 = bbox_true[..., 1:2] + bbox_true[..., 3:4] / 2
 
-    x1, y1 = torch.max(box1_x1, box2_x1), torch.max(box1_y1, box2_y1)
-    y2, x2 = torch.min(box1_x2, box2_x2), torch.min(box1_y2, box2_y2)
+    # intersection width as overlap in x-axis
+    w = (torch.min(box1_x2, box2_x2) - torch.max(box1_x1, box2_x1)).clamp(0)
+    # intersection height as overlap in y-axis
+    h = (torch.min(box1_y2, box2_y2) - torch.max(box1_y1, box2_y1)).clamp(0)
+    intersection = w * h
 
-    # set to zero if the bounding boxes do not intersect
-    intersection = (x2 - x1).clamp(0) * (y2 - y1).clamp(0)
+    box1_area = (box1_x2 - box1_x1) * (box1_y2 - box1_y1)
+    box2_area = (box2_x2 - box2_x1) * (box2_y2 - box2_y1)
+    union = box1_area + box2_area - intersection 
 
-    box1_area = abs((box1_x2 - box1_x1) * (box1_y2 - box1_y1))
-    box2_area = abs((box2_x2 - box2_x1) * (box2_y2 - box2_y1))
-
-    return intersection / (box1_area + box2_area - intersection + 1e-6)
+    return intersection / union
 
 
 class YOLOv1Loss(nn.Module):
@@ -165,7 +166,7 @@ if __name__ == "__main__":
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    N = 2**5
+    N = 2**3
     S = 7
     B = 2
     C = 20
@@ -175,20 +176,20 @@ if __name__ == "__main__":
     # and dummy predicted volume [N, S, S, S*S*(B*5+C)]
     y_true = torch.zeros((N, S, S, 5), device=device)
     y_pred = torch.rand((N, S, S, B * 5 + C), device=device)
-    # y_pred = torch.zeros((N, S, S, B * 5 + C), device=device)
+    # y_pred = torch.zeros((N, S, S, B * 5 + C), device=device) # perfect prediction
 
     for b in range(N):
         for obj in torch.randint(1, S**2, (num_objects,)):
             cell = random.randint(0, S**2 - 1)
             row, col = cell // S, cell % S
             y_true[b, row, col, :-1] = torch.rand(size=(4, ))
-            y_true[b, row, col, -1] = torch.randint(low=1, high=C, size=(1, ))
+            y_true[b, row, col, -1] = torch.randint(low=0, high=C-1, size=(1, ))
 
             # perfect prediction
             # bbox = torch.randint(low=0, high=B-1, size=(1, ))
             # y_pred[b, row, col, bbox * 5] = 1.
-            # y_pred[b, row, col, bbox * 5 + 1:bbox * 5 + 6] = y_true[b, row, col, :-1]
-            # y_true[b, row, col, -C:] = F.one_hot(y_true[b, row, col, -1], num_classes=C)
+            # y_pred[b, row, col, bbox * 5 + 1:bbox * 5 + 5] = y_true[b, row, col, :-1]
+            # y_pred[b, row, col, -C:] = F.one_hot(y_true[b, row, col, -1].long(), num_classes=C)
 
     
     loss = YOLOv1Loss(lambdas=[5, 0.5], S=S, B=B, C=C, reduction='sum')
