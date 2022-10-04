@@ -38,7 +38,6 @@ class YOLO(nn.Module):
         :param C: Number of class labels, defaults to 20
         :type C: int, optional
         """
-
         super(YOLO, self).__init__()
 
         conv_blocks_config = [
