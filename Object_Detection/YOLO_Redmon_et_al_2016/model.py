@@ -67,15 +67,15 @@ class YOLO(nn.Module):
 
         for blk in conv_blocks_config:
             if type(blk) is tuple:
-                in_channels = self.__make_conv_block__(in_channels, blk)
+                in_channels = self._make_conv_block(in_channels, blk)
 
             elif type(blk) is str:
                 self.conv_blocks.append(nn.MaxPool2d(kernel_size=2, stride=2))
 
             elif type(blk) is list:
                 for _i in range(blk[2]):
-                    in_channels = self.__make_conv_block__(in_channels, blk[0])
-                    in_channels = self.__make_conv_block__(in_channels, blk[1])
+                    in_channels = self._make_conv_block(in_channels, blk[0])
+                    in_channels = self._make_conv_block(in_channels, blk[1])
 
         self.fcs = nn.Sequential(
             nn.Flatten(),
@@ -88,7 +88,7 @@ class YOLO(nn.Module):
         self.sigmoid = nn.Sigmoid()
         self.softmax = nn.Softmax(dim=-1)
 
-    def __make_conv_block__(self, in_channels, block):
+    def _make_conv_block(self, in_channels, block):
         """Append convolutional block and non-linearity to the network.
 
         :param in_channels: number of input channels
@@ -132,7 +132,7 @@ class YOLO(nn.Module):
 
         x = self.fcs(x)
         x = torch.reshape(x, (-1, self.S, self.S, self.B * 5 + self.C))
-        
+
         # center_x, center_y, height, width for all bounding boxes
         x[..., :self.B * 5] = self.sigmoid(x[..., :self.B * 5])
 
