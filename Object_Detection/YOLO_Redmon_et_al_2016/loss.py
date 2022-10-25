@@ -44,7 +44,7 @@ def IoU(bbox_pred, bbox_true):
 
     box1_area = (box1_x2 - box1_x1) * (box1_y2 - box1_y1)
     box2_area = (box2_x2 - box2_x1) * (box2_y2 - box2_y1)
-    union = box1_area + box2_area - intersection 
+    union = box1_area + box2_area - intersection
 
     return intersection / union
 
@@ -79,7 +79,7 @@ class YOLOv1Loss(nn.Module):
             Defaults to 'sum'.
         :type reduction: str, optional
         """
-        super(YOLOv1Loss, self).__init__()        
+        super(YOLOv1Loss, self).__init__()
         self.S = S
         self.B = B
         self.C = C
@@ -106,7 +106,7 @@ class YOLOv1Loss(nn.Module):
         y_pred_obj = y_pred[mask_obj]       # [num_objects, S*S*(B*5+C)]
         y_pred_noobj = y_pred[mask_noobj]   # [S^2 - num_objects, 5]
 
-        # finds detector with the highest confidence score between all 
+        # finds detector with the highest confidence score between all
         # bouning boxes and targets.
         y_pred_obj = self._max_confidence_score(y_true_obj, y_pred_obj)
 
@@ -116,19 +116,23 @@ class YOLOv1Loss(nn.Module):
 
         lambda_coord = 5
         loss_coord = lambda_coord * F.mse_loss(
-            y_pred_obj[:, 1:5], y_true_obj[:, :4], reduction=self.reduction
+            y_pred_obj[:, 1:5], y_true_obj[:, :4],
+            reduction=self.reduction
             )
 
         # loss confidence scores
         loss_conf_obj = F.mse_loss(
-            torch.ones_like(y_pred_obj[:, 0]), y_pred_obj[:, 0], reduction=self.reduction
+            torch.ones_like(y_pred_obj[:, 0]), y_pred_obj[:, 0],
+            reduction=self.reduction
             )
 
-        lambda_noobj = 0.5
-        y_pred_noobj = y_pred_noobj[:, :-C].reshape(-1, 5)[:, 0]  # [empty cells * B]
+        # [empty cells * B]
+        y_pred_noobj = y_pred_noobj[:, :-C].reshape(-1, 5)[:, 0]
 
+        lambda_noobj = 0.5
         loss_conf_noobj = lambda_noobj * F.mse_loss(
-            torch.zeros_like(y_pred_noobj), y_pred_noobj, reduction=self.reduction
+            torch.zeros_like(y_pred_noobj), y_pred_noobj,
+            reduction=self.reduction
             )
 
         # one hot encoding loss
@@ -139,6 +143,7 @@ class YOLOv1Loss(nn.Module):
             )
 
         loss = loss_coord + loss_conf_obj + loss_conf_noobj + loss_class
+
         return loss / float(y_true.shape[0])
 
     def _max_confidence_score(self, y_true_obj, y_pred_obj):
@@ -148,7 +153,7 @@ class YOLOv1Loss(nn.Module):
         :type y_true_obj: torch.Tensor
         :param y_pred_obj: Predictions for grid cells containing an object [num_objects, B*5+C]
         :type y_pred_obj: torch.Tensor
-        :return: y_pred_obj of shape [num_objects, len([conf_score, cx, cy, w, h]) + C]    
+        :return: y_pred_obj of shape [num_objects, len([conf_score, cx, cy, w, h]) + C]
         :rtype: torch.Tensor
         """
         conf = torch.empty((y_pred_obj.shape[0], self.B), device=y_pred_obj.device)
@@ -156,7 +161,7 @@ class YOLOv1Loss(nn.Module):
             conf[..., b:b+1] = IoU(y_pred_obj[..., b*5+1:b*5+5], y_true_obj[..., :-1])
             conf[..., b:b+1] *= y_pred_obj[..., b*5:b*5+1]
 
-        # mask for bounding box with highest confidence score 
+        # mask for bounding box with highest confidence score
         mask_predictor = torch.zeros_like(y_pred_obj, dtype=torch.bool)
         for row, bbox in enumerate(torch.max(conf, dim=-1)[1]):
             mask_predictor[row, bbox:bbox+5] = True
@@ -179,7 +184,8 @@ if __name__ == "__main__":
     # and dummy predicted volume [N, S, S, S*S*(B*5+C)]
     y_true = torch.zeros((N, S, S, 5), device=device)
     # y_pred = torch.rand((N, S, S, B * 5 + C), device=device)
-    y_pred = torch.zeros((N, S, S, B * 5 + C), device=device) # perfect prediction
+    # perfect prediction
+    y_pred = torch.zeros((N, S, S, B * 5 + C), device=device)
 
     for b in range(N):
         for obj in torch.randint(1, S**2, (num_objects,)):
@@ -192,9 +198,10 @@ if __name__ == "__main__":
             bbox = torch.randint(low=0, high=B-1, size=(1, ))
             y_pred[b, row, col, bbox * 5] = 1.
             y_pred[b, row, col, bbox * 5 + 1:bbox * 5 + 5] = y_true[b, row, col, :-1]
-            y_pred[b, row, col, -C:] = F.one_hot(y_true[b, row, col, -1].long()-1, num_classes=C)
+            y_pred[b, row, col, -C:] = F.one_hot(
+                y_true[b, row, col, -1].long()-1, num_classes=C
+                )
 
-    
     loss = YOLOv1Loss(lambdas=[5, 0.5], S=S, B=B, C=C, reduction='sum')
 
     print(loss(y_pred, y_true))
