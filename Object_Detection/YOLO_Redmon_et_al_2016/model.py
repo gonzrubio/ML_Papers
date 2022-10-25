@@ -106,7 +106,7 @@ class YOLO(nn.Module):
                           kernel_size=kernel_size,
                           stride=stride,
                           padding=padding,
-                          padding_mode='reflect',
+                          padding_mode='zeros',
                           bias=True),
                 nn.LeakyReLU(0.1)
             )
