@@ -13,40 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-def IoU(bbox_pred, bbox_true):
-    """Compute the intersection over union.
-
-    :param bbox_pred: Predicted bounding boxes (num_boxes, 4)
-    :type bbox_pred: torch.Tensor
-    :param bbox_true: True bounding boxes (num_boxes, 4)
-    :type bbox_true: torch.Tensor
-    :return: The intersection over union for all pairs of boxes
-    :rtype: torch.Tensor
-
-    """
-    # define the rectangles by their top-left and bottom-right coordinates
-    box1_x1 = bbox_pred[..., 0:1] - bbox_pred[..., 2:3] / 2
-    box1_y1 = bbox_pred[..., 1:2] - bbox_pred[..., 3:4] / 2
-    box1_x2 = bbox_pred[..., 0:1] + bbox_pred[..., 2:3] / 2
-    box1_y2 = bbox_pred[..., 1:2] + bbox_pred[..., 3:4] / 2
-
-    box2_x1 = bbox_true[..., 0:1] - bbox_true[..., 2:3] / 2
-    box2_y1 = bbox_true[..., 1:2] - bbox_true[..., 3:4] / 2
-    box2_x2 = bbox_true[..., 0:1] + bbox_true[..., 2:3] / 2
-    box2_y2 = bbox_true[..., 1:2] + bbox_true[..., 3:4] / 2
-
-    # intersection width as overlap in x-axis
-    w = (torch.min(box1_x2, box2_x2) - torch.max(box1_x1, box2_x1)).clamp(0)
-    # intersection height as overlap in y-axis
-    h = (torch.min(box1_y2, box2_y2) - torch.max(box1_y1, box2_y1)).clamp(0)
-    intersection = w * h
-
-    box1_area = (box1_x2 - box1_x1) * (box1_y2 - box1_y1)
-    box2_area = (box2_x2 - box2_x1) * (box2_y2 - box2_y1)
-    union = box1_area + box2_area - intersection
-
-    return intersection / union
+from .utils import iou
 
 
 class YOLOv1Loss(nn.Module):
@@ -91,7 +58,7 @@ class YOLOv1Loss(nn.Module):
 
         :param y_pred: Predicted tensor of shape (N, S, S, B * 5 + C).
         :type y_pred: torch.Tensor
-        :param y_true: Ground truths of shape (N, S, S, 5 + C), the normalized
+        :param y_true: Ground truths of shape (N, S, S, 5), the normalized
         4-dimensional bounding box center, width and height, and the class id.
         :type y_true: torch.Tensor
         :return: The computed loss between input and target. If `reduction` is
@@ -108,6 +75,7 @@ class YOLOv1Loss(nn.Module):
 
         # finds detector with the highest confidence score between all
         # bouning boxes and targets.
+        # understand this part well, step through
         y_pred_obj = self._max_confidence_score(y_true_obj, y_pred_obj)
 
         # loss coord
@@ -136,6 +104,8 @@ class YOLOv1Loss(nn.Module):
             )
 
         # one hot encoding loss
+        # I think can do this one as norm of pred vector subtractin 1 at the
+        # class index
         loss_class = F.mse_loss(
             F.one_hot(y_true_obj[:, -1].long() - 1, num_classes=self.C),
             y_pred_obj[..., -C:],
@@ -144,7 +114,7 @@ class YOLOv1Loss(nn.Module):
 
         loss = loss_coord + loss_conf_obj + loss_conf_noobj + loss_class
 
-        return loss / float(y_true.shape[0])
+        return loss / float(y_true.shape[0])  # I dont think should average
 
     def _max_confidence_score(self, y_true_obj, y_pred_obj):
         """Find the bounding box b responsible for detecting the object.
@@ -158,7 +128,7 @@ class YOLOv1Loss(nn.Module):
         """
         conf = torch.empty((y_pred_obj.shape[0], self.B), device=y_pred_obj.device)
         for b in range(self.B):
-            conf[..., b:b+1] = IoU(y_pred_obj[..., b*5+1:b*5+5], y_true_obj[..., :-1])
+            conf[..., b:b+1] = iou(y_pred_obj[..., b*5+1:b*5+5], y_true_obj[..., :-1])
             conf[..., b:b+1] *= y_pred_obj[..., b*5:b*5+1]
 
         # mask for bounding box with highest confidence score
