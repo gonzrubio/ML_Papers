@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .utils import iou
+from utils import iou
 
 
 class YOLOv1Loss(nn.Module):
@@ -24,7 +24,7 @@ class YOLOv1Loss(nn.Module):
     confidence scores and the conditional class probability.
     """
 
-    def __init__(self, lambdas=[5, 0.5], S=7, B=2, C=20, reduction='sum'):
+    def __init__(self, S=7, B=2, C=20, lambdas=[5, 0.5], reduction='sum'):
         """Construct the criterion.
 
         :param lambdas: Manual rescaling weights given to the loss from
@@ -39,7 +39,7 @@ class YOLOv1Loss(nn.Module):
         :type B: int, optional
         :param C: Number of class labels, defaults to 20
         :type C: int, optional
-        :param reduction: pecifies the reduction to apply to the output:
+        :param reduction: specifies the reduction to apply to the output:
             'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
             'mean': the sum of the output will be divided by the number of
             elements in the output, 'sum': the output will be summed.
@@ -65,17 +65,16 @@ class YOLOv1Loss(nn.Module):
         `none`, shape (N) otherwise, scalar.
         :rtype: torch.Tensor
         """
-        # produces shape [num_objects, 5 | S*S*(B*5+C)]
+        # reduce pred and true to shape [num_obj, B*5+C] and [num_obj, 5]
         mask_obj = (y_true > 0)[..., -1]
         mask_noobj = torch.logical_not(mask_obj)
 
-        y_true_obj = y_true[mask_obj]       # [num_objects, 5]
-        y_pred_obj = y_pred[mask_obj]       # [num_objects, S*S*(B*5+C)]
-        y_pred_noobj = y_pred[mask_noobj]   # [S^2 - num_objects, 5]
+        y_true_obj = y_true[mask_obj]       # [num_obj, 5]
+        y_pred_obj = y_pred[mask_obj]       # [num_obj, B*5+C]
+        y_pred_noobj = y_pred[mask_noobj]   # [N * S^2 - num_obj, B*5+C]
 
-        # finds detector with the highest confidence score between all
-        # bouning boxes and targets.
-        # understand this part well, step through
+        # find the predicted predictor with the highest confidence
+        # reduces [num_obj, B*5+C] to [num_obj, 5+C]
         y_pred_obj = self._max_confidence_score(y_true_obj, y_pred_obj)
 
         # loss coord
@@ -104,8 +103,6 @@ class YOLOv1Loss(nn.Module):
             )
 
         # one hot encoding loss
-        # I think can do this one as norm of pred vector subtractin 1 at the
-        # class index
         loss_class = F.mse_loss(
             F.one_hot(y_true_obj[:, -1].long() - 1, num_classes=self.C),
             y_pred_obj[..., -C:],
@@ -114,25 +111,33 @@ class YOLOv1Loss(nn.Module):
 
         loss = loss_coord + loss_conf_obj + loss_conf_noobj + loss_class
 
-        return loss / float(y_true.shape[0])  # I dont think should average
+        return loss / float(y_true.shape[0])  # loss per image
 
     def _max_confidence_score(self, y_true_obj, y_pred_obj):
         """Find the bounding box b responsible for detecting the object.
 
         :param y_true_obj: Grid cells containing an object [num_objects, 5]
         :type y_true_obj: torch.Tensor
-        :param y_pred_obj: Predictions for grid cells containing an object [num_objects, B*5+C]
+        :param y_pred_obj: Predictions of shape [num_objects, B*5+C] for grid
+        cells containing an object
         :type y_pred_obj: torch.Tensor
-        :return: y_pred_obj of shape [num_objects, len([conf_score, cx, cy, w, h]) + C]
+        :return: y_pred_obj [num_objects, len([conf_score, cx, cy, w, h]) + C]
         :rtype: torch.Tensor
         """
-        conf = torch.empty((y_pred_obj.shape[0], self.B), device=y_pred_obj.device)
+        conf = torch.empty(
+            (y_pred_obj.shape[0], self.B), device=y_pred_obj.device
+            )
+
         for b in range(self.B):
-            conf[..., b:b+1] = iou(y_pred_obj[..., b*5+1:b*5+5], y_true_obj[..., :-1])
+            conf[..., b:b+1] = iou(
+                y_pred_obj[..., b*5+1:b*5+5],
+                y_true_obj[..., :-1]
+                )
             conf[..., b:b+1] *= y_pred_obj[..., b*5:b*5+1]
 
         # mask for bounding box with highest confidence score
         mask_predictor = torch.zeros_like(y_pred_obj, dtype=torch.bool)
+
         for row, bbox in enumerate(torch.max(conf, dim=-1)[1]):
             mask_predictor[row, bbox:bbox+5] = True
             mask_predictor[row, -self.C:] = True
@@ -144,18 +149,18 @@ if __name__ == "__main__":
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    N = 2**3
+    N = 2**1
     S = 7
     B = 2
     C = 20
     num_objects = 13
 
     # dummy target batch [N, S, S, len([center_x, center_y, w, h, class_num])]
-    # and dummy predicted volume [N, S, S, S*S*(B*5+C)]
-    y_true = torch.zeros((N, S, S, 5), device=device)
-    # y_pred = torch.rand((N, S, S, B * 5 + C), device=device)
+    # and dummy predicted batch [N, S, S, S*S*(B*5+C)]
+
     # perfect prediction
     y_pred = torch.zeros((N, S, S, B * 5 + C), device=device)
+    y_true = torch.zeros((N, S, S, 5), device=device)
 
     for b in range(N):
         for obj in torch.randint(1, S**2, (num_objects,)):
@@ -167,9 +172,12 @@ if __name__ == "__main__":
             # perfect prediction
             bbox = torch.randint(low=0, high=B-1, size=(1, ))
             y_pred[b, row, col, bbox * 5] = 1.
-            y_pred[b, row, col, bbox * 5 + 1:bbox * 5 + 5] = y_true[b, row, col, :-1]
+            y_pred[b, row, col, bbox * 5 + 1:bbox * 5 + 5] = y_true[
+                b, row, col, :-1
+                ]
             y_pred[b, row, col, -C:] = F.one_hot(
-                y_true[b, row, col, -1].long()-1, num_classes=C
+                y_true[b, row, col, -1].long()-1,
+                num_classes=C
                 )
 
     loss = YOLOv1Loss(lambdas=[5, 0.5], S=S, B=B, C=C, reduction='sum')
