@@ -1,5 +1,9 @@
-"""common functionality."""
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Oct 28 13:22:59 2022
 
+@author: gonzr
+"""
 
 import torch
 
