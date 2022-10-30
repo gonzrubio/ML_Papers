@@ -13,7 +13,7 @@ After downloading the datasets, they need to be separated and moved to:
     ├─ VOC2007/
     ├─ VOC2012/
 
-This scipt creates a dataset that has the following directory structure:
+The scipt creates a dataset with the following directory structure:
     VOC/
     ├─ Images/
     ├  ├── 1.jpg
@@ -72,8 +72,16 @@ CLASS_ID__MAP = {
 
 
 def voc_to_yolo_bbox(labels, im_shape):
-    # [x_center, y_center, width, height, class_id]
+    """Convert to yolo bounding box encoding.
 
+    :param labels: Bouding box coordinates and class number
+    :type labels: numpy.ndarray
+    :param im_shape: Height and Width of the image
+    :type im_shape: tuple of ints
+    :return: labels normalized relative to the image shape
+    :rtype: numpy.ndarray
+
+    """
     labels[:, 2] -= labels[:, 0]        # width
     labels[:, 3] -= labels[:, 1]        # height
     labels[:, 0] += 0.5 * labels[:, 2]  # x_center
@@ -117,14 +125,12 @@ def labels_from_xml(xml_path):
 
 
 def write_csv(labels, dest):
-    """
+    """Create a csv file from 'labels'.
 
-    :param labels: DESCRIPTION
-    :type labels: TYPE
-    :param dest: DESCRIPTION
-    :type dest: TYPE
-    :return: DESCRIPTION
-    :rtype: TYPE
+    :param labels: Bounding box coordinates and class number
+    :type labels: numpy.ndarray
+    :param dest: Full path to the csv
+    :type dest: str
 
     """
     with open(dest, 'w') as f:
@@ -134,34 +140,41 @@ def write_csv(labels, dest):
 
 
 def main(new_path):
+    """Create a single dataset from the Pascal VOC 2007 and 2012 datasets.
 
-    path_07 = '../data/VOC2007'
-    path_12 = '../data/VOC2012'
-    # os.mkdir(new_path)
-    # os.mkdir(os.path.join(new_path, 'Annotations'))
+    :param new_path: DESCRIPTION
+    :type new_path: TYPE
+
+    """
+    os.mkdir(new_path)
+    os.mkdir(os.path.join(new_path, 'Annotations'))
+
     new_images_path = os.path.join(new_path, 'Images')
     new_labels_path = os.path.join(new_path, 'Annotations')
 
-    # for path in [path_07, path_12]:
+    path_07 = '../data/VOC2007'
+    path_12 = '../data/VOC2012'
 
-    #     # combine all images into a single folder
-    #     images_path = os.path.join(path, 'JPEGImages')
-    #     copy_tree(src=images_path, dst=new_images_path)
+    for path in [path_07, path_12]:
 
-    #     # convert to yolo labels and combine in a single folder
-    #     labels_path = os.path.join(path, 'Annotations')
+        # combine all images into a single folder
+        images_path = os.path.join(path, 'JPEGImages')
+        copy_tree(src=images_path, dst=new_images_path)
 
-    #     for xml_path in glob.glob(f'{labels_path}/*'):
+        # convert to yolo labels and combine in a single folder
+        labels_path = os.path.join(path, 'Annotations')
 
-    #         xml_filename = os.path.basename(xml_path)
-    #         filename = os.path.splitext(xml_filename)[0]
-    #         image_path = os.path.join(new_images_path, filename + '.jpg')
+        for xml_path in glob.glob(f'{labels_path}/*'):
 
-    #         # make sure there is a corresponding image in Images/
-    #         if os.path.exists(image_path):
-    #             labels = labels_from_xml(xml_path)
-    #             dst = os.path.join(new_labels_path, filename + '.csv')
-    #             write_csv(labels, dst)
+            xml_filename = os.path.basename(xml_path)
+            filename = os.path.splitext(xml_filename)[0]
+            image_path = os.path.join(new_images_path, filename + '.jpg')
+
+            # make sure there is a corresponding image in Images/
+            if os.path.exists(image_path):
+                labels = labels_from_xml(xml_path)
+                dst = os.path.join(new_labels_path, filename + '.csv')
+                write_csv(labels, dst)
 
     # make train, val and test splits
     # shuffle Annotations/ since we made a csv annotations file only if there
@@ -173,18 +186,24 @@ def main(new_path):
     train_idx = int(len(annotations) * splits['train'])
     val_idx = train_idx + (int(len(annotations) * splits['val']))
 
-    for annotation in annotations[:train_idx]:
-        print(annotation)
+    with open(os.path.join(new_path, 'train.txt'), 'w') as f:
+        for annotation in annotations[:train_idx]:
+            filename = os.path.splitext(os.path.basename(annotation))[0]
+            f.write(filename + '\n')
 
-    for annotation in annotations[train_idx:val_idx]:
-        print(annotation)
+    with open(os.path.join(new_path, 'val.txt'), 'w') as f:
+        for annotation in annotations[train_idx:val_idx]:
+            filename = os.path.splitext(os.path.basename(annotation))[0]
+            f.write(filename + '\n')
 
-    for annotation in annotations[val_idx:]:
-        print(annotation)
+    with open(os.path.join(new_path, 'test.txt'), 'w') as f:
+        for annotation in annotations[val_idx:]:
+            filename = os.path.splitext(os.path.basename(annotation))[0]
+            f.write(filename + '\n')
 
 
 if __name__ == "__main__":
 
     new_path = '../data/VOC/'
-    # assert not os.path.exists(new_path)
+    assert not os.path.exists(new_path)
     main(new_path)
