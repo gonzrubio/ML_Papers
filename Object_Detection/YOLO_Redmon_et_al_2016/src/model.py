@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """You Only Look Once: Unified, Real-Time Object Detection.
 
 Paper: https://arxiv.org/abs/1506.02640
