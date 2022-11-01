@@ -11,7 +11,7 @@ import os
 import torch
 
 from PIL import Image
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, default_collate
 # from utils.bounding_box import encode_labels, decode_labels
 from utils.transforms import Transform, AugmentTransform
 
@@ -74,7 +74,7 @@ class VOCDetection(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        """Get the (image, label) pair at the `idx` index."""
+        """Read the `idx`-th (image, label) pair."""
         filename = self.data[idx]
         image_path = os.path.join(self.images_dir, filename + '.jpg')
         label_path = os.path.join(self.annotations_dir, filename + '.csv')
@@ -94,22 +94,29 @@ class VOCDetection(Dataset):
     def collate_fn(self, batch):
         """Collate function to be passed to the DataLoader.
 
-        :param batch: An iterable of N (image, labels) pairs from __getitem__()
+        :param batch: An iterable of length `len(batch)` containing the sampled
+        (image, labels) pairs from __getitem__()
         :type batch: list
-        :return: A single tensor containing the images and a list of
-        varying-size tensors with the labels
+        :return: The collated batch. If `train` is `True`, a batched image
+        tensor and a batched labels Tensor otherwise, a batched image tensor
+        and a list of varying-size tensors with the labels.
+
+        otherwise returns
         :rtype: tuple
 
         """
-        images = [None] * len(batch)
-        labels = [None] * len(batch)
+        if self.train:
+            return default_collate(batch)
+        else:
+            images = [None] * len(batch)
+            labels = [None] * len(batch)
 
-        for idx, sample in enumerate(batch):
-            images[idx], labels[idx] = sample
+            for idx, sample in enumerate(batch):
+                images[idx], labels[idx] = sample
 
-        images = torch.stack(images, dim=0)
+            images = torch.stack(images, dim=0)
 
-        return images, labels
+            return images, labels
 
 
 def voc_detection():
@@ -121,7 +128,7 @@ def voc_detection():
     batch = next(iter(dataloader))
     # plot_batch(batch)  # color code class and write class name on bbox
 
-    # get batch in train mode (img, encoded labels)
+    # get batch in train mode (img, encoded labels), do i need new collate_fn ?
     # data = YOLO_VOC(split='train', train=True)
     # create data loader and get batch no shuffle so can compare same images
     # dataloader = DataLoader(data, batch_size=64, shuffle=False)
