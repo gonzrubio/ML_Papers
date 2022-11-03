@@ -40,15 +40,28 @@ ID_COLOR_MAP = {
     }
 
 
-def plot_batch(batch, resize_size=(1024, 1024), save_dir=None):
-    # plot collated batch from eval mode
+def plot_batch(batch, size=(1024, 1024), save_dir=None):
+    """Plot a collated batch of (image, labels) pairs.
+
+    :param batch: A collated batch of image-label pairs. One of:
+        - A batched image tensor and a batched labels tensor.
+        - A batched image tensor, a stacked labels tensor and a tensor of batch
+        indices mapping each bounding box to its respective image in the batch.
+    :type batch: tuple
+    :param size: The size to resize the images to, defaults to (1024, 1024)
+    :type resize_size: TYPE, optional
+    :param save_dir: If specified, the directory to save the plotted images to,
+    defaults to None
+    :type save_dir: str, optional
+
+    """
     # to do: plot collated batch from train mode, check shapes and convert by
     # importing the decoding function
 
     (images, labels, batch_idx) = batch
     for idx, image in enumerate(images):
 
-        image = F.interpolate(image.unsqueeze(0), size=resize_size).squeeze(0)
+        image = F.interpolate(image.unsqueeze(0), size=size).squeeze(0)
         image = (image * 255).to(dtype=torch.uint8)
         labels_image = labels[batch_idx == idx]
         boxes = labels_image[:, :-1]
