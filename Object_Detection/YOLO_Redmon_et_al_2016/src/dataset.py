@@ -12,7 +12,7 @@ import torch
 
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader, default_collate
-# from utils.bounding_box import encode_labels, decode_labels
+from utils.bounding_boxes import encode_labels
 from utils.plots import plot_batch
 from utils.transforms import Transform, AugmentTransform
 
@@ -45,7 +45,8 @@ class VOCDetection(Dataset):
             root='../data/VOC',
             split='train',
             train=True,
-            transform=None
+            transform=None,
+            S=7, B=2, C=20
             ):
         """Parameters.
 
@@ -59,6 +60,14 @@ class VOCDetection(Dataset):
         augmented ground truth labels if True, otherwise it returns the images
         and the raw ground truth labels, defaults to True
         :type train: bool, optional
+        :param S: Number of grid cells to split the image for each direction,
+        defaults to 7
+        :type S: int, optional
+        :param B: Number of predicted bounding boxes per gird cell,
+        defaults to 2
+        :type B: int, optional
+        :param C: Number of class labels, defaults to 20
+        :type C: int, optional
 
         """
         self.images_dir = os.path.join(root, 'Images')
@@ -67,6 +76,7 @@ class VOCDetection(Dataset):
             self.data = f.read().splitlines()
         self.train = train
         self.transform = AugmentTransform() if self.train else Transform()
+        self.S, self.B, self.C = S, B, C
 
     def __len__(self):
         """Return the number of samples in the dataset."""
@@ -85,8 +95,7 @@ class VOCDetection(Dataset):
 
         image, labels = self.transform(image, labels)
         if self.train:
-            # labels = encode_labels(labels)
-            pass
+            labels = encode_labels(labels, self.S, self.B, self.C)
 
         return image, labels
 
@@ -125,24 +134,16 @@ class VOCDetection(Dataset):
 if __name__ == '__main__':
 
     def voc_detection():
-
-        # get batch in eval mode and plot it
-        data = VOCDetection(split='train', train=False)
-        kwargs = {
-            'batch_size': 5,
-            'shuffle': False,
-            'collate_fn': data.collate_fn,
-            }
-        dataloader = DataLoader(data, **kwargs)
-        plot_batch(next(iter(dataloader)))
-
-        # get batch in train mode (img, encoded labels), do i need new collate_fn ?
-        # data = YOLO_VOC(split='train', train=True)
-        # create data loader and get batch no shuffle so can compare same images
-        # dataloader = DataLoader(data, batch_size=64, shuffle=False)
-        # batch = next(iter(dataloader))
-        # encoded labels to labels, decoding script in utils/bounding_box.py
-        # plot_batch(batch)  # color code class and write class name on bbox 
+        """Plot collated batches in train and eval mode."""
+        for train in [False, True]:
+            data = VOCDetection(split='train', train=train)
+            kwargs = {
+                'batch_size': 5,
+                'shuffle': False,
+                'collate_fn': data.collate_fn,
+                }
+            dataloader = DataLoader(data, **kwargs)
+            plot_batch(next(iter(dataloader)))
 
     voc_detection()
     # people_art()
