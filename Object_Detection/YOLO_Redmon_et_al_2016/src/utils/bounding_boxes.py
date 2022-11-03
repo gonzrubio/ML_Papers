@@ -9,33 +9,25 @@ Created on Fri Oct 28 13:22:59 2022
 import torch
 
 
-def yolo_to_voc_bbox(labels, im_shape):
-    """Convert to yolo bounding box encoding.
+def yolo_to_voc_bbox(bboxes, im_shape):
+    """Convert the bounding boxes to pixel coordinates.
 
-    :param labels: Bouding box coordinates and class number
-    :type labels: numpy.ndarray
+    :param bboxes: The YOLO encoded coordinates for the bouding boxes
+    :type labels: torch.Tensor
     :param im_shape: Height and Width of the image
     :type im_shape: tuple of ints
-    :return: labels normalized relative to the image shape
-    :rtype: numpy.ndarray
+    :return: The pixel coordinates for the bouding boxes
+    :rtype: torch.Tensor
 
     """
+    bboxes[:, 0::2] *= im_shape[0]      # scale x-coordinates
+    bboxes[:, 1::2] *= im_shape[1]      # scale y-coordinates
+    bboxes[:, 0] -= 0.5 * bboxes[:, 2]  # x1
+    bboxes[:, 1] -= 0.5 * bboxes[:, 3]  # y1
+    bboxes[:, 2] += bboxes[:, 0]        # x2
+    bboxes[:, 3] += bboxes[:, 1]        # y2
 
-    # undo: labels[:, 0:-1:2] /= im_shape[0]
-    labels[:, 0::2] *= im_shape[0]
-    # undo: labels[:, 1:-1:2] /= im_shape[1]
-    labels[:, 1::2] *= im_shape[1]
-
-    # x1 undo: labels[:, 0] += 0.5 * labels[:, 2]  # x_center
-    labels[:, 0] -= 0.5 * labels[:, 2]
-    # y1 undo: labels[:, 1] += 0.5 * labels[:, 3]  # y_center
-    labels[:, 1] -= 0.5 * labels[:, 3]
-    # x2 undo: labels[:, 2] -= labels[:, 0]        # width
-    labels[:, 2] += labels[:, 0]
-    # y2 undo: labels[:, 3] -= labels[:, 1]        # height
-    labels[:, 3] += labels[:, 1]
-
-    return labels
+    return bboxes
 
 
 def iou(bbox_pred, bbox_true):
