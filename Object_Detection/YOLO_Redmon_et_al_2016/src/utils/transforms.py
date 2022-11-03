@@ -12,28 +12,21 @@ from torchvision import transforms
 
 class Transform(object):
     def __init__(self):
-        self.transforms = [
-            transforms.Resize((448, 448)),
-            transforms.ToTensor()
-            ]
+        self.base_transform = transforms.ToTensor()
 
     def __call__(self, image, labels):
-        for transform in self.transforms:
-            image = transform(image)
-
-        return image, labels
+        return self.base_transform(image), labels
 
 
 class AugmentTransform(Transform):
     def __init__(self):
         super(AugmentTransform, self).__init__()
         self.transforms = [
-            transforms.Resize((448, 448)),
-            transforms.ToTensor()
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
             ]
 
     def __call__(self, image, labels):
-        image, labels = self(image, labels)
+        image, labels = super(AugmentTransform, self).__call__(image, labels)
         for transform in self.transforms:
             image = transform(image)
 
