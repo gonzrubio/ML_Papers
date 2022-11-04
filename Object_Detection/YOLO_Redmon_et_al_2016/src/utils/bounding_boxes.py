@@ -8,46 +8,33 @@ Created on Fri Oct 28 13:22:59 2022
 
 import torch
 
-def encode_labels(labels, S=7):
-    # encode the target labels as an S x S x len([cx, cy, w, h, class]) tensor
-    # gts [[xc, yc, w, h, class_id]_i, ..., [xc, yc, w, h, class_id]_n]
-    # :param S: Number of grid cells to split the image for each direction,
-    # defaults to 7
-    # :type S: int, optional
-    # :param B: Number of predicted bounding boxes per gird cell,
-    # defaults to 2
-    # :type B: int, optional
-    # :param C: Number of class labels, defaults to 20
-    # :type C: int, optional
 
+def encode_labels(labels, S=7):
+    """Encode the target labels into an S x S x 5 tensor.
+
+    :param labels: The ground truth labels for the objects in the image
+    :type labels: torch.Tensor
+    :param S: Number of grid cells to split the image for in direction,
+    defaults to 7
+    :type S: int, optional
+    :return: The encoded ground truth labels for the objects in the image
+    :rtype: torch.Tensor
+
+    """
     # divide the image into an S x S grid and assign an object to a grid cell
     # if the center of an object falls into that grid cell
-    # the center coordinates of the object are relative to the grid cell and
-    # the width and height are relative to the whole image
-    # grid cells containing an object also contain the class of the object
     encoded_labels = torch.zeros((S, S, 5), dtype=labels.dtype)
-
-    # if num_obj > 1:
     x, y = S * labels[:, 0], S * labels[:, 1]
     row = torch.floor(x).to(dtype=torch.long)
     col = torch.floor(y).to(dtype=torch.long)
+
+    # the center coordinates of the object are relative to the grid cell and
+    # the width and height are relative to the whole image
+    # grid cells containing an object also contain the class of the object
     xc, yc = x - row, y - col
     labels[:, 0], labels[:, 1] = xc, yc
     encoded_labels[row, col, :] = labels
 
-    # if num_obj > 1:
-    #     x, y = S * labels[:, 0], S * labels[:, 1]
-    #     row = torch.floor(x).to(dtype=torch.long)
-    #     col = torch.floor(y).to(dtype=torch.long)
-    #     xc, yc = x - row, y - col
-    #     labels[:, 0], labels[:, 1] = xc, yc
-    #     encoded_labels[row, col, :] = labels
-    # else:
-    #     x, y = S * labels[0], S * labels[1]
-    #     row, col = int(x), int(y)
-    #     xc, yc = x - row, y - col
-    #     labels[0], labels[1] = xc, yc
-    #     encoded_labels[row, col, :] = labels
     return encoded_labels
 
 
