@@ -38,6 +38,21 @@ def encode_labels(labels, S=7):
     return encoded_labels
 
 
+def decode_labels(labels, S=7):
+    # extract the labels from the grid cells containing an object
+    # look for width to be non-negative just in case that xc and yc have no
+    # offset relative to the grid cell
+    grid_cells = torch.nonzero(labels[..., 2] > 0)
+    labels = labels[grid_cells[:, 0], grid_cells[:, 1]]
+
+    # convert centers of objects to be relative to the image rather than
+    # being relative to the i,j grid cell
+    labels[:, 0] = (labels[:, 0] + grid_cells[:, 0]) / S
+    labels[:, 1] = (labels[:, 1] + grid_cells[:, 1]) / S
+
+    return labels
+
+
 def yolo_to_voc_bbox(bboxes, im_shape):
     """Convert the bounding boxes to pixel coordinates.
 
