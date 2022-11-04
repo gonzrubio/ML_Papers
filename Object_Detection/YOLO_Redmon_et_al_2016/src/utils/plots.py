@@ -11,7 +11,7 @@ import os
 import torch
 import torch.nn.functional as F
 
-from .bounding_boxes import yolo_to_voc_bbox
+from .bounding_boxes import yolo_to_voc_bbox, decode_labels
 from torchvision.utils import draw_bounding_boxes
 
 
@@ -55,15 +55,23 @@ def plot_batch(batch, size=(1024, 1024), save_dir=None):
     :type save_dir: str, optional
 
     """
-    # to do: plot collated batch from train mode, check shapes and convert by
-    # importing the decoding function
+    if batch[-1].dim() == 4:
+        mode = 'train'
+        (images, labels) = batch
+    elif batch[-1].dim() == 1:
+        mode = 'eval'
+        (images, labels, batch_idx) = batch
 
-    (images, labels, batch_idx) = batch
     for idx, image in enumerate(images):
 
         image = F.interpolate(image.unsqueeze(0), size=size).squeeze(0)
         image = (image * 255).to(dtype=torch.uint8)
-        labels_image = labels[batch_idx == idx]
+
+        if mode == 'train':
+            labels_image = decode_labels(labels[idx])
+        elif mode == 'eval':
+            labels_image = labels[batch_idx == idx]
+
         boxes = labels_image[:, :-1]
         boxes = yolo_to_voc_bbox(boxes, (image.shape[-2], image.shape[-1]))
 
@@ -83,5 +91,3 @@ def plot_batch(batch, size=(1024, 1024), save_dir=None):
 
         if save_dir:
             plt.imsave(os.path.join(save_dir, f'{idx}.png'), drawn_boxes)
-
-    return batch
