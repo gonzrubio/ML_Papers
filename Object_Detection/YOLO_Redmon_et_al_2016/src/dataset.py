@@ -46,7 +46,7 @@ class VOCDetection(Dataset):
             split='train',
             train=True,
             transform=None,
-            S=7, B=2, C=20
+            S=7
             ):
         """Parameters.
 
@@ -60,14 +60,9 @@ class VOCDetection(Dataset):
         augmented ground truth labels if True, otherwise it returns the images
         and the raw ground truth labels, defaults to True
         :type train: bool, optional
-        :param S: Number of grid cells to split the image for each direction,
+        :param S: Number of grid cells to split the image in each direction,
         defaults to 7
         :type S: int, optional
-        :param B: Number of predicted bounding boxes per gird cell,
-        defaults to 2
-        :type B: int, optional
-        :param C: Number of class labels, defaults to 20
-        :type C: int, optional
 
         """
         self.images_dir = os.path.join(root, 'Images')
@@ -76,7 +71,7 @@ class VOCDetection(Dataset):
             self.data = f.read().splitlines()
         self.train = train
         self.transform = AugmentTransform() if self.train else Transform()
-        self.S, self.B, self.C = S, B, C
+        self.S = S
 
     def __len__(self):
         """Return the number of samples in the dataset."""
@@ -89,13 +84,16 @@ class VOCDetection(Dataset):
         label_path = os.path.join(self.annotations_dir, filename + '.csv')
 
         image = Image.open(image_path).convert('RGB')
-        labels = torch.from_numpy(
+        labels = torch.as_tensor(
             np.loadtxt(label_path, skiprows=1, delimiter=',')
             )
 
+        if labels.dim() < 2:
+            labels.unsqueeze_(0)
+
         image, labels = self.transform(image, labels)
         if self.train:
-            labels = encode_labels(labels, self.S, self.B, self.C)
+            labels = encode_labels(labels, self.S)
 
         return image, labels
 
@@ -121,14 +119,13 @@ class VOCDetection(Dataset):
 
             for idx, sample in enumerate(batch):
                 images[idx], labels[idx] = sample
-                n_bbox = len(labels[idx]) if len(labels[idx].shape) > 1 else 1
-                batch_idx[idx] = torch.tensor([idx] * n_bbox)
+                batch_idx[idx] = torch.tensor([idx] * labels[idx].shape[0])
 
             images = torch.stack(images, dim=0)
             labels = torch.vstack(labels)
             batch_idx = torch.hstack(batch_idx)
 
-            return (images, labels, batch_idx)
+            return [images, labels, batch_idx]
 
 
 if __name__ == '__main__':
