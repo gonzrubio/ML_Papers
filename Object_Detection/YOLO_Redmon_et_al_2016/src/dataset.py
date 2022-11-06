@@ -15,6 +15,7 @@ from torch.utils.data import Dataset, DataLoader, default_collate
 from utils.bounding_boxes import encode_labels
 from utils.plots import plot_batch
 from utils.transforms import Transform, AugmentTransform
+from make_voc_dataset import ID_CLASS_MAP, ID_COLOR_MAP
 
 
 class VOCDetection(Dataset):
@@ -140,7 +141,11 @@ if __name__ == '__main__':
                 'collate_fn': data.collate_fn,
                 }
             dataloader = DataLoader(data, **kwargs)
-            plot_batch(next(iter(dataloader)))
+            plot_batch(
+                next(iter(dataloader)),
+                ID_CLASS_MAP,
+                ID_COLOR_MAP
+                )
 
     voc_detection()
     # people_art()
