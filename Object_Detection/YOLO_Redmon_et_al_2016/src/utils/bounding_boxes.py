@@ -9,6 +9,30 @@ Created on Fri Oct 28 13:22:59 2022
 import torch
 
 
+def voc_to_yolo_bbox(labels, im_shape):
+    """Convert voc to yolo bounding box encoding.
+
+    :param labels: The bouding box coordinates and class number for all of the
+    objects in the image, [xmin, ymin, xmax, ymax, class_num]
+    :type labels: numpy.ndarray
+    :param im_shape: The height and width of the image
+    :type im_shape: tuple of ints
+    :return: The labels with the yolo bounding box encoding
+    [xc, yc, w, h, class_num], where the coordinates are normalized to be
+    relative to the entire image (between zero and one)
+    :rtype: numpy.ndarray
+
+    """
+    labels[:, 2] -= labels[:, 0]        # width
+    labels[:, 3] -= labels[:, 1]        # height
+    labels[:, 0] += 0.5 * labels[:, 2]  # x_center
+    labels[:, 1] += 0.5 * labels[:, 3]  # y_center
+    labels[:, 0:-1:2] /= im_shape[0]
+    labels[:, 1:-1:2] /= im_shape[1]
+
+    return labels
+
+
 def encode_labels(labels, S=7):
     """Encode the target labels into an S x S x 5 tensor.
 
