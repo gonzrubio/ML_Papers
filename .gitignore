@@ -1,14 +1,13 @@
 # Data
-*/Images/*
-*/Annotations/*
-*train.txt
-*val.txt
-*test.txt
-#*/data/*
+**/Images/
+**/Annotations/
+**/train.txt
+**/val.txt
+**/test.txt
 
 # Logs
-#*/tensorboard/*
-#*/runs/*
+# */tensorboard/*
+# */runs/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
