@@ -21,10 +21,11 @@ detection. The directory of the custom dataset has the following structure:
     ├─ test.txt
 
 For simplicity, the datasets are combined and randomly split (70/20/10) into
-train, val and test splits. All of the images are resized to 448x448 and
-standardized using the mean and the standard deviation of ImageNet. The center
-coordinates, width and height of the bounding boxes are normalized to be
-relative to the resized images (between zero and one).
+train, val and test splits. To save time and avoid makeing the same transforms
+over and over again, all of the images are resized to 448x448 and standardized
+using the mean and the standard deviation of ImageNet. The center coordinates,
+width and height of the bounding boxes are normalized to be relative to the
+resized images (between zero and one).
 
 The labeled dataset is a follows:
     {(image_i, [x_center, y_center, width, height, class_id, class_name]_i)}
@@ -45,11 +46,17 @@ import glob
 import numpy as np
 import os
 import random
+import shutil
+import tarfile
+import wget
 import xml.etree.ElementTree as ET
 
 from distutils.dir_util import copy_tree
 from PIL import Image
+from torchvision import transforms
+from torchvision.utils import save_image
 from utils.bounding_boxes import voc_to_yolo_bbox
+from utils.transforms import IMAGENET_NORMALIZE
 
 CLASS_ID_MAP = {
     'aeroplane': 0, 'bicycle': 1, 'bird': 2, 'boat': 3, 'bottle': 4, 'bus': 5,
@@ -120,46 +127,84 @@ def write_csv(labels, dest):
         write.writerows(labels)
 
 
+def filename_from_path(path):
+    """Return the filename from a relative or absolute path string."""
+    return os.path.splitext(os.path.basename(path))[0]
+
+
+def find_dir(name, start):
+    """Find the absolute path to the subdirectory."""
+    for root, dirs, files in os.walk(start):
+        for d in dirs:
+            if d == name:
+                return os.path.abspath(os.path.join(root, d))
+
+
 def main(new_path):
     """Create a single dataset from the Pascal VOC 2007 and 2012 datasets.
 
-    :param new_path: DESCRIPTION
-    :type new_path: TYPE
+    :param new_path: Where to save the custom dataset
+    :type new_path: str
 
     """
-    os.mkdir(new_path)
-    os.mkdir(os.path.join(new_path, 'Annotations'))
-
     new_images_path = os.path.join(new_path, 'Images')
     new_labels_path = os.path.join(new_path, 'Annotations')
+    os.makedirs(new_labels_path)
 
-    path_07 = './VOC2007'
-    path_12 = './VOC2012'
+    filepaths = [None] * 3
+    output_directory = '../data/'
+    urls = [
+        "http://host.robots.ox.ac.uk/pascal/VOC/voc2007/"
+        "VOCtrainval_06-Nov-2007.tar",
+        "http://host.robots.ox.ac.uk/pascal/VOC/voc2007/"
+        "VOCtest_06-Nov-2007.tar",
+        "http://host.robots.ox.ac.uk/pascal/VOC/voc2012/"
+        "VOCtrainval_11-May-2012.tar"
+            ]
 
-    for path in [path_07, path_12]:
+    for idx, url in enumerate(urls):
+        filepath = wget.download(url, out=output_directory)
+        filename = filename_from_path(filepath)
+        file = tarfile.open(filepath)
+        filepaths[idx] = os.path.join(output_directory, filename)
+        file.extractall(filepaths[idx])
+        file.close()
+        os.remove(filepath)
+
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=IMAGENET_NORMALIZE['mean'],
+            std=IMAGENET_NORMALIZE['std']
+            ),
+        transforms.Resize((448, 448))
+        ])
+
+    for path in filepaths:
 
         # combine all images into a single folder
-        images_path = os.path.join(path, 'JPEGImages')
+        images_path = find_dir(name='JPEGImages', start=path)
         copy_tree(src=images_path, dst=new_images_path)
 
         # convert to yolo labels and combine in a single folder
-        labels_path = os.path.join(path, 'Annotations')
+        labels_path = find_dir(name='Annotations', start=path)
 
         # make sure there is a corresponding image in Images/ for each
         # annotation and resize the image to 448x448
         for xml_path in glob.glob(f'{labels_path}/*'):
 
-            xml_filename = os.path.basename(xml_path)
-            filename = os.path.splitext(xml_filename)[0]
+            filename = filename_from_path(xml_path)
             image_path = os.path.join(new_images_path, filename + '.jpg')
 
             if os.path.exists(image_path):
                 image = Image.open(image_path)
-                image = image.resize((448, 448))
-                image.save(image_path)
+                image = transform(image)
+                save_image(image, image_path)
                 labels = labels_from_xml(xml_path)
                 dst = os.path.join(new_labels_path, filename + '.csv')
                 write_csv(labels, dst)
+
+        shutil.rmtree(path)
 
     # make train, val and test splits
     # shuffle Annotations/ since we made a csv annotations file only if there
