@@ -4,3 +4,4 @@ torchaudio==0.12.1
 pytorch==1.12.1
 cudatoolkit==11.6.0
 matplotlib==3.5.2
+python-wget==3.2
