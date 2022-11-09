@@ -11,7 +11,7 @@ import os
 import torch
 import torch.nn.functional as F
 
-from bounding_boxes import yolo_to_voc_bbox, decode_labels
+from utils.bounding_boxes import yolo_to_voc_bbox, decode_labels
 from torchvision.utils import draw_bounding_boxes
 
 
@@ -20,6 +20,7 @@ def plot_batch(
         id_class_map,
         id_color_map,
         size=(1024, 1024),
+        fill='true',
         save_dir=None):
     """Plot a collated batch of (image, labels) pairs.
 
@@ -29,7 +30,9 @@ def plot_batch(
         indices mapping each bounding box to its respective image in the batch.
     :type batch: tuple
     :param size: The size to resize the images to, defaults to (1024, 1024)
-    :type resize_size: TYPE, optional
+    :type size: TYPE, optional
+    :param fill: Shade in the bounding boxes, defaults to 'true'
+    :type fill: str, optional
     :param save_dir: If specified, the directory to save the plotted images to,
     defaults to None
     :type save_dir: str, optional
@@ -61,7 +64,7 @@ def plot_batch(
             classes[box] = id_class_map[int(class_id.item())]
             colors[box] = id_color_map[int(class_id.item())]
 
-        kwargs = {'labels': classes, 'colors': colors, 'fill': True}
+        kwargs = {'labels': classes, 'colors': colors, 'fill': fill}
         drawn_boxes = draw_bounding_boxes(image, boxes, **kwargs)
         drawn_boxes = drawn_boxes.permute(1, 2, 0).numpy()
 
