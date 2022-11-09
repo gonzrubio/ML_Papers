@@ -14,7 +14,7 @@ from PIL import Image
 from torch.utils.data import Dataset, DataLoader, default_collate
 from utils.bounding_boxes import encode_labels
 from utils.plots import plot_batch
-from utils.transforms import Transform, AugmentTransform
+from utils.transforms import ToTensor, Augment
 from make_voc_dataset import ID_CLASS_MAP, ID_COLOR_MAP
 
 
@@ -71,7 +71,7 @@ class VOCDetection(Dataset):
         with open(os.path.join(root, split + '.txt')) as f:
             self.data = f.read().splitlines()
         self.train = train
-        self.transform = AugmentTransform() if self.train else Transform()
+        self.transform = Augment() if self.train else ToTensor()
         self.S = S
 
     def __len__(self):
@@ -135,17 +135,14 @@ if __name__ == '__main__':
         """Plot collated batches in train and eval mode."""
         for train in [False, True]:
             data = VOCDetection(split='train', train=train)
-            kwargs = {
-                'batch_size': 5,
-                'shuffle': False,
-                'collate_fn': data.collate_fn,
-                }
-            dataloader = DataLoader(data, **kwargs)
-            plot_batch(
-                next(iter(dataloader)),
-                ID_CLASS_MAP,
-                ID_COLOR_MAP
+            dataloader = DataLoader(
+                data,
+                batch_size=5,
+                shuffle=False,
+                collate_fn=data.collate_fn
                 )
+            batch = next(iter(dataloader))
+            plot_batch(batch, ID_CLASS_MAP, ID_COLOR_MAP)
 
     voc_detection()
     # people_art()
