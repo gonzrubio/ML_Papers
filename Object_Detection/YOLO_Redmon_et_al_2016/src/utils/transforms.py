@@ -5,29 +5,40 @@ Created on Mon Oct 31 18:53:53 2022
 @author: gonzr
 """
 
-import torch.nn.functional as F
-
 from torchvision import transforms
 
+IMAGENET_NORMALIZE = {
+    'mean': [0.485, 0.456, 0.406],
+    'std': [0.229, 0.224, 0.225]
+    }
 
-class Transform(object):
+
+class ToTensor(object):
     def __init__(self):
-        self.base_transform = transforms.ToTensor()
+        super(ToTensor, self).__init__()
+        # wrapper for torchvision.transforms.ToTensor() to convert an image
+        # in ... to .... , expand on this
+        self.to_tensor = transforms.ToTensor()
 
     def __call__(self, image, labels):
-        return self.base_transform(image), labels
+        return self.to_tensor(image), labels
 
 
-class AugmentTransform(Transform):
+class Augment(ToTensor):
     def __init__(self):
-        super(AugmentTransform, self).__init__()
-        self.transforms = [
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-            ]
+        super(Augment, self).__init__()
+        # normalize the image tensor values with the mean and standard
+        # deviation of ImageNet
+        # random scaling and translations up to 20%
+        # randomly adjust the exposure and saturation of the image by up to a
+        # factor of 1.5 in the HSV color space
+        # self.transforms = [
+        #     ]
+        pass
 
     def __call__(self, image, labels):
-        image, labels = super(AugmentTransform, self).__call__(image, labels)
-        for transform in self.transforms:
-            image = transform(image)
+        image, labels = super(Augment, self).__call__(image, labels)
+        # for transform in self.transforms:
+        #     image = transform(image)
 
         return image, labels
