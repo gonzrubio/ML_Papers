@@ -9,18 +9,19 @@ Created on Mon Oct 31 16:03:13 2022
 import matplotlib.pyplot as plt
 import os
 import torch
-import torch.nn.functional as F
 
-from utils.bounding_boxes import yolo_to_voc_bbox, decode_labels
+from torchvision import transforms
 from torchvision.utils import draw_bounding_boxes
+from utils.bounding_boxes import yolo_to_voc_bbox, decode_labels
+from utils.transforms import IMAGENET_NORMALIZE
 
 
 def plot_batch(
         batch,
         id_class_map,
         id_color_map,
-        size=(1024, 1024),
-        fill='true',
+        size=(448, 448),
+        fill=True,
         save_dir=None):
     """Plot a collated batch of (image, labels) pairs.
 
@@ -29,7 +30,7 @@ def plot_batch(
         - A batched image tensor, a stacked labels tensor and a tensor of batch
         indices mapping each bounding box to its respective image in the batch.
     :type batch: tuple
-    :param size: The size to resize the images to, defaults to (1024, 1024)
+    :param size: The size to resize the images to, defaults to (448, 448)
     :type size: TYPE, optional
     :param fill: Shade in the bounding boxes, defaults to 'true'
     :type fill: str, optional
@@ -45,10 +46,19 @@ def plot_batch(
         mode = 'eval'
         (images, labels, batch_idx) = batch
 
+    mean = IMAGENET_NORMALIZE['mean']
+    std = IMAGENET_NORMALIZE['std']
+    inverse_transform = transforms.Compose([
+        transforms.Normalize(
+            mean=[- m / s for m, s in zip(mean, std)],
+            std=[1. / (s * 255) for s in std]
+            ),
+        transforms.Resize(size),
+        ])
+
     for idx, image in enumerate(images):
 
-        image = F.interpolate(image.unsqueeze(0), size=size).squeeze(0)
-        image = (image * 255).to(dtype=torch.uint8)
+        image = inverse_transform(image).to(dtype=torch.uint8)
 
         if mode == 'train':
             labels_image = decode_labels(labels[idx])
