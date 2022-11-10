@@ -9,11 +9,26 @@ Created on Mon Oct 31 18:53:53 2022
 import random
 import torch
 import torchvision.transforms.functional as TF
+import torchvision.transforms as transforms
 
 IMAGENET_NORMALIZE = {
     'mean': [0.485, 0.456, 0.406],
     'std': [0.229, 0.224, 0.225]
     }
+
+
+class Augment(object):
+    def __init__(self):
+        super(Augment, self).__init__()
+        self.transforms = transforms.Compose([
+            ToTensorNormalize(),
+            RandomTranslate(),
+            # RandomScale(),
+            # RandomJitter()
+            ])
+
+    def __call__(self, image, labels):
+        return self.transforms(image, labels)
 
 
 class ToTensorNormalize(object):
@@ -40,42 +55,26 @@ class ToTensorNormalize(object):
         return image, labels
 
 
-class Augment(ToTensorNormalize):
-    # random translation and scaling up to 20% in all directions
+class InvToTensorNormalize(object):
+    pass
+
+
+class RandomTranslate(object):
+    # random horizontal and vertical translations (up to 20% of the image size)
     # translate (tuple, optional) – tuple of maximum absolute fraction for
     # horizontal and vertical translations. For example translate=(a, b), then
     # horizontal shift is randomly sampled in the range
     # -img_width * a < dx < img_width * a and vertical shift is randomly sampled
     # in the range -img_height * b < dy < img_height * b. Will not translate by
     # default.
-    # scale (tuple, optional) – scaling factor interval, e.g (a, b), then scale is
-    # randomly sampled from the range a <= scale <= b. Will keep original scale by
-    # default.
-    def __init__(
-            self,
-            translate=(0.2, 0.2),
-            scale=(0.8, 1.2)
-            ):
-        super(Augment, self).__init__()
-        self.translate = translate
-        self.scale = scale
-
-        # can group sequential transforms using Compose()
-        # self.transforms = [
-        #     ]
-
-        # randomly adjust the exposure and saturation of the image by up to a
-        # factor of 1.5 in the HSV color space
+    def __init__(self, translate=(0.2, 0.2)):
+        super(RandomTranslate, self).__init__()
+        self.translate_dx, self.translate_dy = translate
 
     def __call__(self, image, labels):
-        image, labels = super(Augment, self).__call__(image, labels)
-        image, labels = self.random_affine(image, labels)
-        return image, labels
-
-    def random_affine(self, image, labels):
         # chose randomly in the range -img_width * a < dx < img_width * a
-        dx = random.uniform(- self.translate[0], self.translate[0])
-        dy = random.uniform(- self.translate[1], self.translate[1])
+        dx = random.uniform(- self.translate_dx, self.translate_dx)
+        dy = random.uniform(- self.translate_dy, self.translate_dy)
         translate = round(image.shape[1] * dx), round(image.shape[2] * dy)
         # scale = random.uniform(*self.scale)
         # dx = 0
@@ -105,22 +104,40 @@ class Augment(ToTensorNormalize):
         return image, labels
 
 
+class RandomScale(object):
+    # random scaling (up to 20% of the image size)
+    # scale (tuple, optional) – scaling factor interval, e.g (a, b), then scale is
+    # randomly sampled from the range a <= scale <= b. Will keep original scale by
+    # default.
+    def __init__(self, scale=(0.8, 1.2)):
+        super(RandomTranslate, self).__init__()
+        # self.scale = random.uniform(*scale)
+        self.scale = 1
+
+    def __call__(self, image, labels):
+        image = TF.affine(
+            image, angle=0, shear=0, translate=0, scale=self.scale
+            )
+
+        # labels[:, 2:4] *= self.scale
+        labels[:, :4] *= self.scale
+
+        # TODO I dont think need this, double check
+        # remove bounding boxes outside of the image
+        # labels = labels[
+        #     torch.logical_and(
+        #         torch.logical_and(labels[:, 0] >= 0, labels[:, 1] >= 0),
+        #         torch.logical_and(labels[:, 0] <= 1, labels[:, 1] <= 1)
+        #         )
+        #     ]
+
+        # clip width and height of bounding box to the size of the image
+        labels[:, 2:4] = torch.clip(labels[:, 2:4], max=1)
+
+        return image, labels
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+class RandomJitter(object):
+    # randomly adjust the exposure and saturation of the image by up to a
+    # factor of 1.5 in the HSV color space
+    pass
