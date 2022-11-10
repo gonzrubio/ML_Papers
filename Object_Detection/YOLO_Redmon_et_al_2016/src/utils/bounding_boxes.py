@@ -63,9 +63,20 @@ def encode_labels(labels, S=7):
 
 
 def decode_labels(labels, S=7):
+    """Decode the S x S x 5 target tensor to the target labels.
+
+    :param labels: The encoded ground truth labels for the objects in the image
+    :type labels: torch.Tensor
+    :param S: Number of grid cells to split the image for in direction,
+    defaults to 7
+    :type S: int, optional
+    :return: The ground truth labels for the objects in the image
+    :rtype: torch.Tensor
+
+    """
     # extract the labels from the grid cells containing an object
-    # look for width to be non-negative just in case that xc and yc have no
-    # offset relative to the grid cell
+    # look for the width to be non-negative just in case that xc and yc have no
+    # offsets relative to the grid cell
     grid_cells = torch.nonzero(labels[..., 2] > 0)
     labels = labels[grid_cells[:, 0], grid_cells[:, 1]]
 
