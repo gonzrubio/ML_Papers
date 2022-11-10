@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""
+"""Custom transforms to preprocess, augment and visualize data.
+
 Created on Mon Oct 31 18:53:53 2022
 
 @author: gonzr
@@ -16,12 +17,24 @@ IMAGENET_NORMALIZE = {
 
 
 class ToTensorNormalize(object):
+    """Convert the PIL Image to a torch image tensor and Normalize."""
+
     def __init__(self):
         super(ToTensorNormalize, self).__init__()
         self.mean = IMAGENET_NORMALIZE['mean']
         self.std = IMAGENET_NORMALIZE['std']
 
     def __call__(self, image, labels):
+        """Convert the image to a tensor and normalize using ImageNet.
+
+        :param image: The raw image
+        :type image: PIL.Image
+        :param labels: The labels for the objects in the image. Left unchanged.
+        :type labels: torch.Tensor
+        :return: The normalized tensor image and original labels
+        :rtype: tuple
+
+        """
         image = TF.to_tensor(image)
         image = TF.normalize(image, mean=self.mean, std=self.std)
         return image, labels
@@ -90,8 +103,6 @@ class Augment(ToTensorNormalize):
         labels[:, 2:4] = torch.clip(labels[:, 2:4], max=1)
 
         return image, labels
-
-
 
 
 
