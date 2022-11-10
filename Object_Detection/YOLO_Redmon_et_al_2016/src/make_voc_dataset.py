@@ -22,10 +22,10 @@ detection. The directory of the custom dataset has the following structure:
 
 For simplicity, the datasets are combined and randomly split (70/20/10) into
 train, val and test splits. To save time and avoid makeing the same transforms
-over and over again, all of the images are resized to 448x448 and standardized
-using the mean and the standard deviation of ImageNet. The center coordinates,
-width and height of the bounding boxes are normalized to be relative to the
-resized images (between zero and one).
+over and over again, all of the images are resized to 448x448.
+
+The center coordinates, width and height of the bounding boxes are normalized
+to be relative to the resized images (between zero and one).
 
 The labeled dataset is a follows:
     {(image_i, [x_center, y_center, width, height, class_id, class_name]_i)}
@@ -54,9 +54,7 @@ import xml.etree.ElementTree as ET
 from distutils.dir_util import copy_tree
 from PIL import Image
 from torchvision import transforms
-from torchvision.utils import save_image
 from utils.bounding_boxes import voc_to_yolo_bbox
-from utils.transforms import IMAGENET_NORMALIZE
 
 CLASS_ID_MAP = {
     'aeroplane': 0, 'bicycle': 1, 'bird': 2, 'boat': 3, 'bottle': 4, 'bus': 5,
@@ -171,15 +169,6 @@ def main(new_path):
         file.close()
         os.remove(filepath)
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(
-            mean=IMAGENET_NORMALIZE['mean'],
-            std=IMAGENET_NORMALIZE['std']
-            ),
-        transforms.Resize((448, 448))
-        ])
-
     for path in filepaths:
 
         # combine all images into a single folder
@@ -198,8 +187,8 @@ def main(new_path):
 
             if os.path.exists(image_path):
                 image = Image.open(image_path)
-                image = transform(image)
-                save_image(image, image_path)
+                image = transforms.functional.resize(image, size=(448, 448))
+                image.save(image_path)
                 labels = labels_from_xml(xml_path)
                 dst = os.path.join(new_labels_path, filename + '.csv')
                 write_csv(labels, dst)
