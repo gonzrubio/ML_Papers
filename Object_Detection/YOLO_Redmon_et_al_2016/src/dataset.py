@@ -14,7 +14,7 @@ from PIL import Image
 from torch.utils.data import Dataset, DataLoader, default_collate
 from utils.bounding_boxes import encode_labels
 from utils.plots import plot_batch
-from utils.transforms import ToTensor, Augment
+from utils.transforms import ToTensorNormalize, Augment
 from make_voc_dataset import ID_CLASS_MAP, ID_COLOR_MAP
 
 
@@ -71,7 +71,7 @@ class VOCDetection(Dataset):
         with open(os.path.join(root, split + '.txt')) as f:
             self.data = f.read().splitlines()
         self.train = train
-        self.transform = Augment() if self.train else ToTensor()
+        self.transform = Augment() if self.train else ToTensorNormalize()
         self.S = S
 
     def __len__(self):
