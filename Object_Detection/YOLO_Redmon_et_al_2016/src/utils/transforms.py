@@ -19,23 +19,23 @@ IMAGENET_NORMALIZE = {
 
 class Augment(object):
     def __init__(self):
-        super(Augment, self).__init__()
-        self.transforms = transforms.Compose([
-            ToTensorNormalize(),
-            RandomTranslate(),
-            # RandomScale(),
-            # RandomJitter()
-            ])
+        self.transforms = [
+                ToTensorNormalize(),
+                # RandomTranslate(),
+                RandomScale(),
+                # RandomJitter(),
+                ]
 
     def __call__(self, image, labels):
-        return self.transforms(image, labels)
+        for transform in self.transforms:
+            image, labels = transform(image, labels)
+        return image, labels
 
 
 class ToTensorNormalize(object):
     """Convert the PIL Image to a torch image tensor and Normalize."""
 
     def __init__(self):
-        super(ToTensorNormalize, self).__init__()
         self.mean = IMAGENET_NORMALIZE['mean']
         self.std = IMAGENET_NORMALIZE['std']
 
@@ -68,7 +68,6 @@ class RandomTranslate(object):
     # in the range -img_height * b < dy < img_height * b. Will not translate by
     # default.
     def __init__(self, translate=(0.2, 0.2)):
-        super(RandomTranslate, self).__init__()
         self.translate_dx, self.translate_dy = translate
 
     def __call__(self, image, labels):
@@ -110,31 +109,32 @@ class RandomScale(object):
     # randomly sampled from the range a <= scale <= b. Will keep original scale by
     # default.
     def __init__(self, scale=(0.8, 1.2)):
-        super(RandomTranslate, self).__init__()
-        # self.scale = random.uniform(*scale)
-        self.scale = 1
+        self.scale = scale
 
-    def __call__(self, image, labels):
-        image = TF.affine(
-            image, angle=0, shear=0, translate=0, scale=self.scale
-            )
+    def __call__(self, img, labels):
+        scale = random.uniform(*self.scale)
+        img = TF.affine(img, angle=0, shear=0, translate=(0, 0), scale=scale)
 
-        # labels[:, 2:4] *= self.scale
-        labels[:, :4] *= self.scale
+        # distance from center of bounding box to center of image
+        # image_center = 0.5 * image.shape[-1]
+        # cx = cy since its a square image
+        image_center = 0.5
+        deltas = labels[:, :2] - image_center
 
-        # TODO I dont think need this, double check
-        # remove bounding boxes outside of the image
-        # labels = labels[
-        #     torch.logical_and(
-        #         torch.logical_and(labels[:, 0] >= 0, labels[:, 1] >= 0),
-        #         torch.logical_and(labels[:, 0] <= 1, labels[:, 1] <= 1)
-        #         )
-        #     ]
+        labels[:, :2] = image_center + scale * deltas
+        labels[:, 2:4] *= scale
+
+        labels = labels[
+            torch.logical_and(
+                torch.logical_and(labels[:, 0] >= 0, labels[:, 1] >= 0),
+                torch.logical_and(labels[:, 0] <= 1, labels[:, 1] <= 1)
+                )
+            ]
 
         # clip width and height of bounding box to the size of the image
         labels[:, 2:4] = torch.clip(labels[:, 2:4], max=1)
 
-        return image, labels
+        return img, labels
 
 
 class RandomJitter(object):
