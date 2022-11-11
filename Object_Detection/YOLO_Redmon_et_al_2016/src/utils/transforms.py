@@ -104,20 +104,32 @@ class RandomTranslate(object):
 
 
 class RandomScale(object):
-    # random scaling (up to 20% of the image size)
-    # scale (tuple, optional) – scaling factor interval, e.g (a, b), then scale is
-    # randomly sampled from the range a <= scale <= b. Will keep original scale by
-    # default.
-    def __init__(self, scale=(0.8, 1.2)):
-        self.scale = scale
+    """Randomly scale the image tensor and the ground truth labels.
+
+    The scale is uniformly sampled from the range a <= scale <= b such that the
+    scaling is up to 20% of the image size
+    """
+
+    def __init__(self):
+        self.scale = (0.8, 1.2)
 
     def __call__(self, img, labels):
+        """Scale the image and the bounding box coordinates by a random factor.
+
+        :param img: The original image tensor
+        :type img: torch.Tensor
+        :param labels: The original ground truth labels
+        :type labels: torch.Tensor
+        :return: The randomly scaled image tensor and bounding boxes
+        :rtype: tuple
+
+        """
         scale = random.uniform(*self.scale)
         img = TF.affine(img, angle=0, shear=0, translate=(0, 0), scale=scale)
 
-        # distance from center of bounding box to center of image
-        # image_center = 0.5 * image.shape[-1]
-        # cx = cy since its a square image
+        # compute the distance from the center of the bounding box to center of
+        # the image, (0.5, 0.5) is the center of the since the bounding box
+        # coordinates are normalized to 1
         image_center = 0.5
         deltas = labels[:, :2] - image_center
 
