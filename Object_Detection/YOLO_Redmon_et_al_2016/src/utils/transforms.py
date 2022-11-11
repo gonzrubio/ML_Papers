@@ -21,8 +21,8 @@ class Augment(object):
     def __init__(self):
         self.transforms = [
                 ToTensorNormalize(),
-                # RandomTranslate(),
-                RandomScale(),
+                RandomTranslate(),
+                # RandomScale(),
                 # RandomJitter(),
                 ]
 
@@ -70,24 +70,16 @@ class RandomTranslate(object):
     def __init__(self, translate=(0.2, 0.2)):
         self.translate_dx, self.translate_dy = translate
 
-    def __call__(self, image, labels):
+    def __call__(self, img, labels):
         # chose randomly in the range -img_width * a < dx < img_width * a
         dx = random.uniform(- self.translate_dx, self.translate_dx)
         dy = random.uniform(- self.translate_dy, self.translate_dy)
-        translate = round(image.shape[1] * dx), round(image.shape[2] * dy)
-        # scale = random.uniform(*self.scale)
-        # dx = 0
-        # dy = 0
-        scale = 1
+        translate = round(img.shape[1] * dx), round(img.shape[2] * dy)
+        img = TF.affine(img, angle=0, shear=0, translate=translate, scale=1)
 
-        image = TF.affine(
-            image, angle=0, shear=0, translate=translate, scale=scale
-            )
-
-        # apply transform to labels
+        # apply translation only to the centers of the bounding boxes
         labels[:, 0] += dx
         labels[:, 1] += dy
-        labels[:, 2:4] *= scale
 
         # remove bounding boxes outside of the image
         labels = labels[
@@ -97,10 +89,7 @@ class RandomTranslate(object):
                 )
             ]
 
-        # clip width and height of bounding box to the size of the image
-        labels[:, 2:4] = torch.clip(labels[:, 2:4], max=1)
-
-        return image, labels
+        return img, labels
 
 
 class RandomScale(object):
@@ -127,15 +116,16 @@ class RandomScale(object):
         scale = random.uniform(*self.scale)
         img = TF.affine(img, angle=0, shear=0, translate=(0, 0), scale=scale)
 
-        # compute the distance from the center of the bounding box to center of
-        # the image, (0.5, 0.5) is the center of the since the bounding box
-        # coordinates are normalized to 1
-        image_center = 0.5
-        deltas = labels[:, :2] - image_center
+        # get the distances from the centers of the bounding boxs to center of
+        # the image and position the centers at the scaled distances
+        image_center = 0.5                       # (0.5, 0.5) since normalized
+        deltas = labels[:, :2] - image_center    # original distances
 
+        # apply the scaling to the bounding box parameters
         labels[:, :2] = image_center + scale * deltas
         labels[:, 2:4] *= scale
 
+        # remove bounding boxes outside of the image
         labels = labels[
             torch.logical_and(
                 torch.logical_and(labels[:, 0] >= 0, labels[:, 1] >= 0),
