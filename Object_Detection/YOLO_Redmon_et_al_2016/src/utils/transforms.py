@@ -22,7 +22,7 @@ class Augment(object):
         self.transforms = [
                 ToTensorNormalize(),
                 RandomTranslate(),
-                # RandomScale(),
+                RandomScale(),
                 # RandomJitter(),
                 ]
 
@@ -60,18 +60,27 @@ class InvToTensorNormalize(object):
 
 
 class RandomTranslate(object):
-    # random horizontal and vertical translations (up to 20% of the image size)
-    # translate (tuple, optional) – tuple of maximum absolute fraction for
-    # horizontal and vertical translations. For example translate=(a, b), then
-    # horizontal shift is randomly sampled in the range
-    # -img_width * a < dx < img_width * a and vertical shift is randomly sampled
-    # in the range -img_height * b < dy < img_height * b. Will not translate by
-    # default.
+    """Randomly translate vertically and horizontally the image and the labels.
+
+    The vertical and horizontal shift amounts are sampled independently and
+    uniformly from the range -img_shape * a < dx < img_shape * a. Both of the
+    translations are at most 20% of the image size.
+    """
+
     def __init__(self, translate=(0.2, 0.2)):
         self.translate_dx, self.translate_dy = translate
 
     def __call__(self, img, labels):
-        # chose randomly in the range -img_width * a < dx < img_width * a
+        """Translate the image and the bounding boxes by a random factor.
+
+        :param img: The original image tensor
+        :type img: torch.Tensor
+        :param labels: The original ground truth labels
+        :type labels: torch.Tensor
+        :return: The randomly translated image tensor and bounding boxes
+        :rtype: tuple
+
+        """
         dx = random.uniform(- self.translate_dx, self.translate_dx)
         dy = random.uniform(- self.translate_dy, self.translate_dy)
         translate = round(img.shape[1] * dx), round(img.shape[2] * dy)
