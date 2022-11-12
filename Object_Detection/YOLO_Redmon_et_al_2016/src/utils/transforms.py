@@ -9,7 +9,6 @@ Created on Mon Oct 31 18:53:53 2022
 import random
 import torch
 import torchvision.transforms.functional as TF
-import torchvision.transforms as transforms
 
 IMAGENET_NORMALIZE = {
     'mean': [0.485, 0.456, 0.406],
@@ -18,6 +17,8 @@ IMAGENET_NORMALIZE = {
 
 
 class Augment(object):
+    """Compose several custom transforms to augment the training data."""
+
     def __init__(self):
         self.transforms = [
                 ToTensorNormalize(),
@@ -27,6 +28,16 @@ class Augment(object):
                 ]
 
     def __call__(self, image, labels):
+        """Apply the transformations to the training data.
+
+        :param image: The raw image
+        :type image: PIL.Image
+        :param labels: The raw labels for the objects in the image.
+        :type labels: torch.Tensor
+        :return: The augmented tensor image and ground truth labels
+        :rtype: tuple
+
+        """
         for transform in self.transforms:
             image, labels = transform(image, labels)
         return image, labels
