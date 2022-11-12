@@ -21,9 +21,9 @@ class Augment(object):
     def __init__(self):
         self.transforms = [
                 ToTensorNormalize(),
-                RandomTranslate(),
+                RandomJitter(),
                 RandomScale(),
-                # RandomJitter(),
+                RandomTranslate(),
                 ]
 
     def __call__(self, image, labels):
@@ -59,44 +59,27 @@ class InvToTensorNormalize(object):
     pass
 
 
-class RandomTranslate(object):
-    """Randomly translate vertically and horizontally the image and the labels.
+class RandomJitter(object):
+    """Randomly adjust the exposure and saturation of an image tensor."""
 
-    The vertical and horizontal shift amounts are sampled independently and
-    uniformly from the range -img_shape * a < dx < img_shape * a. Both of the
-    translations are at most 20% of the image size.
-    """
-
-    def __init__(self, translate=(0.2, 0.2)):
-        self.translate_dx, self.translate_dy = translate
+    def __init__(self):
+        self.scale = (1.0, 1.5)
 
     def __call__(self, img, labels):
-        """Translate the image and the bounding boxes by a random factor.
+        """Adjust the exposure and saturation of the image by a random factor.
 
         :param img: The original image tensor
         :type img: torch.Tensor
-        :param labels: The original ground truth labels
+        :param labels: The labels for the objects in the image. Left unchanged.
         :type labels: torch.Tensor
-        :return: The randomly translated image tensor and bounding boxes
+        :return: The adjusted image tensor and the original labels
         :rtype: tuple
 
         """
-        dx = random.uniform(- self.translate_dx, self.translate_dx)
-        dy = random.uniform(- self.translate_dy, self.translate_dy)
-        translate = round(img.shape[1] * dx), round(img.shape[2] * dy)
-        img = TF.affine(img, angle=0, shear=0, translate=translate, scale=1)
-
-        # apply translation only to the centers of the bounding boxes
-        labels[:, 0] += dx
-        labels[:, 1] += dy
-
-        # remove bounding boxes outside of the image
-        labels = labels[
-            torch.logical_and(
-                torch.logical_and(labels[:, 0] >= 0, labels[:, 1] >= 0),
-                torch.logical_and(labels[:, 0] <= 1, labels[:, 1] <= 1)
-                )
-            ]
+        brightness_factor = random.uniform(*self.scale)
+        saturation_factor = random.uniform(*self.scale)
+        img = TF.adjust_brightness(img, brightness_factor)
+        img = TF.adjust_saturation(img, saturation_factor)
 
         return img, labels
 
@@ -148,7 +131,43 @@ class RandomScale(object):
         return img, labels
 
 
-class RandomJitter(object):
-    # randomly adjust the exposure and saturation of the image by up to a
-    # factor of 1.5 in the HSV color space
-    pass
+class RandomTranslate(object):
+    """Randomly translate vertically and horizontally the image and the labels.
+
+    The vertical and horizontal shift amounts are sampled independently and
+    uniformly from the range -img_shape * a < dx < img_shape * a. Both of the
+    translations are at most 20% of the image size.
+    """
+
+    def __init__(self, translate=(0.2, 0.2)):
+        self.translate_dx, self.translate_dy = translate
+
+    def __call__(self, img, labels):
+        """Translate the image and the bounding boxes by a random factor.
+
+        :param img: The original image tensor
+        :type img: torch.Tensor
+        :param labels: The original ground truth labels
+        :type labels: torch.Tensor
+        :return: The randomly translated image tensor and bounding boxes
+        :rtype: tuple
+
+        """
+        dx = random.uniform(- self.translate_dx, self.translate_dx)
+        dy = random.uniform(- self.translate_dy, self.translate_dy)
+        translate = round(img.shape[1] * dx), round(img.shape[2] * dy)
+        img = TF.affine(img, angle=0, shear=0, translate=translate, scale=1)
+
+        # apply translation only to the centers of the bounding boxes
+        labels[:, 0] += dx
+        labels[:, 1] += dy
+
+        # remove bounding boxes outside of the image
+        labels = labels[
+            torch.logical_and(
+                torch.logical_and(labels[:, 0] >= 0, labels[:, 1] >= 0),
+                torch.logical_and(labels[:, 0] <= 1, labels[:, 1] <= 1)
+                )
+            ]
+
+        return img, labels
