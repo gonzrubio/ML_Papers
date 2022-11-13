@@ -10,10 +10,9 @@ import matplotlib.pyplot as plt
 import os
 import torch
 
-from torchvision import transforms
 from torchvision.utils import draw_bounding_boxes
 from utils.bounding_boxes import yolo_to_voc_bbox, decode_labels
-from utils.transforms import IMAGENET_NORMALIZE
+from utils.transforms import InvToTensorNormalize
 
 
 def plot_batch(
@@ -22,7 +21,8 @@ def plot_batch(
         id_color_map,
         size=(448, 448),
         fill=True,
-        save_dir=None):
+        save_dir=None
+        ):
     """Plot a collated batch of (image, labels) pairs.
 
     :param batch: A collated batch of image-label pairs. One of:
@@ -46,15 +46,7 @@ def plot_batch(
         mode = 'eval'
         (images, labels, batch_idx) = batch
 
-    mean = IMAGENET_NORMALIZE['mean']
-    std = IMAGENET_NORMALIZE['std']
-    inverse_transform = transforms.Compose([
-        transforms.Normalize(
-            mean=[- m / s for m, s in zip(mean, std)],
-            std=[1. / (s * 255) for s in std]
-            ),
-        transforms.Resize(size),
-        ])
+    inverse_transform = InvToTensorNormalize(size)
 
     for idx, image in enumerate(images):
 
