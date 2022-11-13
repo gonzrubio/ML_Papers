@@ -66,7 +66,9 @@ def plot_batch(
             classes[box] = id_class_map[int(class_id.item())]
             colors[box] = id_color_map[int(class_id.item())]
 
-        kwargs = {'labels': classes, 'colors': colors, 'fill': fill}
+        kwargs = {
+            'labels': classes, 'colors': colors, 'fill': fill, 'width': 4,
+            }
         drawn_boxes = draw_bounding_boxes(image, boxes, **kwargs)
         drawn_boxes = drawn_boxes.permute(1, 2, 0).numpy()
 
