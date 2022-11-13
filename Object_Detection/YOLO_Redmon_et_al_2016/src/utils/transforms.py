@@ -67,7 +67,27 @@ class ToTensorNormalize(object):
 
 
 class InvToTensorNormalize(object):
-    pass
+    """Remove normalization, scale to pixel values and resize image tensor."""
+
+    def __init__(self, size=448):
+        self.size = size
+        self.mean = [- m / s for m, s in zip(
+            IMAGENET_NORMALIZE['mean'], IMAGENET_NORMALIZE['std']
+            )]
+        self.std = [1. / (s * 255) for s in IMAGENET_NORMALIZE['std']]
+
+    def __call__(self, image):
+        """Unnormalize, scale to pixel values and resize the image tensor.
+
+        :param image: The normalized tensor image
+        :type image: torch.Tensor
+        :return: The unnormalized, pixel scaled and resized tensor image
+        :rtype: TYPE
+
+        """
+        image = TF.normalize(image, mean=self.mean, std=self.std)
+        image = TF.resize(image, size=self.size)
+        return image
 
 
 class RandomJitter(object):
