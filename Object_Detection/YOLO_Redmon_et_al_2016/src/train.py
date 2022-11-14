@@ -54,7 +54,9 @@ def main(config):
         lr=config['learning_rate'], momentum=0.9, weight_decay=0.0005
         )
 
-    train_dataset = VOCDetection(split='train', train=True)
+    train_dataset = VOCDetection(
+        root=config['root'], split='train', train=True
+        )
     train_dataloader = DataLoader(
         train_dataset, batch_size=config['batch_size'], shuffle=True,
         num_workers=config['num_workers'], collate_fn=train_dataset.collate_fn,
@@ -81,6 +83,7 @@ def main(config):
 if __name__ == "__main__":
 
     config = {
+        'root': '../VOC_10_training_samples',
         'batch_size': 2,
         'shuffle': False,
         'num_workers': 1,
