@@ -38,8 +38,10 @@ class Augment(object):
         :rtype: tuple
 
         """
-        for transform in self.transforms:
-            image, labels = transform(image, labels)
+        image, labels = self.transforms[0](image, labels)
+        for transform in self.transforms[1:]:
+            if random.uniform(0, 1) > 0.5:
+                image, labels = transform(image, labels)
         return image, labels
 
 
