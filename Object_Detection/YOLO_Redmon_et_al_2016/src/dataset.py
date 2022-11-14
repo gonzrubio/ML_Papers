@@ -41,14 +41,7 @@ class VOCDetection(Dataset):
 
     """
 
-    def __init__(
-            self,
-            root='../data/VOC',
-            split='train',
-            train=True,
-            transform=None,
-            S=7
-            ):
+    def __init__(self, root='../data/VOC', split='train', train=True, S=7):
         """Parameters.
 
         :param root: Path to folder storing the dataset,
@@ -133,12 +126,13 @@ if __name__ == '__main__':
 
     def voc_detection():
         """Plot collated batches in train and eval mode."""
-        for train in [False, True]:
+        # for train in [False, True]:
+        for train in [False]:
             data = VOCDetection(split='train', train=train)
             dataloader = DataLoader(
                 data,
                 batch_size=5,
-                shuffle=False,
+                shuffle=True,
                 collate_fn=data.collate_fn
                 )
             batch = next(iter(dataloader))
