@@ -15,7 +15,7 @@ from torch.utils.data import Dataset, DataLoader, default_collate
 from utils.bounding_boxes import encode_labels
 from utils.plots import plot_batch
 from utils.transforms import ToTensorNormalize, Augment
-from make_voc_dataset import ID_CLASS_MAP, ID_COLOR_MAP
+from data.make_voc_dataset import ID_CLASS_MAP, ID_COLOR_MAP
 
 
 class VOCDetection(Dataset):
@@ -126,13 +126,12 @@ if __name__ == '__main__':
 
     def voc_detection():
         """Plot collated batches in train and eval mode."""
-        # for train in [False, True]:
-        for train in [False]:
+        for train in [False, True]:
             data = VOCDetection(split='train', train=train)
             dataloader = DataLoader(
                 data,
                 batch_size=5,
-                shuffle=True,
+                shuffle=False,
                 collate_fn=data.collate_fn
                 )
             batch = next(iter(dataloader))
