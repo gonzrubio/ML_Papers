@@ -223,6 +223,6 @@ def main(new_path):
 
 if __name__ == "__main__":
 
-    new_path = '../data/VOC'
+    new_path = '../../data/VOC'
     assert not os.path.exists(new_path), "Custom VOC dataset already exists"
     main(new_path)
