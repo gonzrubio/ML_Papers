@@ -79,7 +79,8 @@ class VOCDetection(Dataset):
 
         image = Image.open(image_path).convert('RGB')
         labels = torch.as_tensor(
-            np.loadtxt(label_path, skiprows=1, delimiter=',')
+            np.loadtxt(label_path, skiprows=1, delimiter=','),
+            dtype=torch.float32
             )
 
         if labels.dim() < 2:
