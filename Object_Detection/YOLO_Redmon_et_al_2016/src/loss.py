@@ -66,6 +66,8 @@ class YOLOv1Loss(nn.Module):
         `none`, shape (N) otherwise, scalar.
         :rtype: torch.Tensor
         """
+        N = y_true.shape[0]
+
         # reduce pred and true to shape [num_obj, B*5+C] and [num_obj, 5]
         mask_obj = (y_true > 0)[..., -1]
         mask_noobj = torch.logical_not(mask_obj)
@@ -86,13 +88,13 @@ class YOLOv1Loss(nn.Module):
         loss_coord = lambda_coord * F.mse_loss(
             y_pred_obj[:, 1:5], y_true_obj[:, :4],
             reduction=self.reduction
-            )
+            ) / N
 
         # loss confidence scores
         loss_conf_obj = F.mse_loss(
             torch.ones_like(y_pred_obj[:, 0]), y_pred_obj[:, 0],
             reduction=self.reduction
-            )
+            ) / N
 
         # [empty cells * B]
         y_pred_noobj = y_pred_noobj[:, :-self.C].reshape(-1, 5)[:, 0]
@@ -101,16 +103,16 @@ class YOLOv1Loss(nn.Module):
         loss_conf_noobj = lambda_noobj * F.mse_loss(
             torch.zeros_like(y_pred_noobj), y_pred_noobj,
             reduction=self.reduction
-            )
+            ) / N
 
         # one hot encoding loss
         loss_class = F.mse_loss(
             F.one_hot(y_true_obj[:, -1].long() - 1, num_classes=self.C),
             y_pred_obj[..., -self.C:],
             reduction=self.reduction
-            )
+            ) / N
 
-        return loss_coord + loss_conf_obj + loss_conf_noobj + loss_class
+        return loss_coord, loss_conf_obj, loss_conf_noobj, loss_class
 
     def _max_confidence_score(self, y_true_obj, y_pred_obj):
         """Find the bounding box b responsible for detecting the object.
@@ -181,4 +183,4 @@ if __name__ == "__main__":
 
     loss_fn = YOLOv1Loss(lambdas=[5, 0.5], S=S, B=B, C=C, reduction='sum')
 
-    print(loss_fn(y_pred, y_true).sum() / N)
+    print(sum(loss_fn(y_pred, y_true)))
