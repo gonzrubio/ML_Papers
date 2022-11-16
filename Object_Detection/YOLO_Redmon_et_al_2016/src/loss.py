@@ -95,7 +95,7 @@ class YOLOv1Loss(nn.Module):
             )
 
         # [empty cells * B]
-        y_pred_noobj = y_pred_noobj[:, :-C].reshape(-1, 5)[:, 0]
+        y_pred_noobj = y_pred_noobj[:, :-self.C].reshape(-1, 5)[:, 0]
 
         lambda_noobj = 0.5
         loss_conf_noobj = lambda_noobj * F.mse_loss(
@@ -106,13 +106,11 @@ class YOLOv1Loss(nn.Module):
         # one hot encoding loss
         loss_class = F.mse_loss(
             F.one_hot(y_true_obj[:, -1].long() - 1, num_classes=self.C),
-            y_pred_obj[..., -C:],
+            y_pred_obj[..., -self.C:],
             reduction=self.reduction
             )
 
-        loss = loss_coord + loss_conf_obj + loss_conf_noobj + loss_class
-
-        return loss / float(y_true.shape[0])  # loss per image
+        return loss_coord + loss_conf_obj + loss_conf_noobj + loss_class
 
     def _max_confidence_score(self, y_true_obj, y_pred_obj):
         """Find the bounding box b responsible for detecting the object.
@@ -181,6 +179,6 @@ if __name__ == "__main__":
                 num_classes=C
                 )
 
-    loss = YOLOv1Loss(lambdas=[5, 0.5], S=S, B=B, C=C, reduction='sum')
+    loss_fn = YOLOv1Loss(lambdas=[5, 0.5], S=S, B=B, C=C, reduction='sum')
 
-    print(loss(y_pred, y_true))
+    print(loss_fn(y_pred, y_true).sum() / N)
