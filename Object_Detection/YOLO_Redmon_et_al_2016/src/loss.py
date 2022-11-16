@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils import iou
+from utils.bounding_boxes import iou
 
 
 class YOLOv1Loss(nn.Module):
