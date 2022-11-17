@@ -107,7 +107,7 @@ class YOLOv1Loss(nn.Module):
 
         # one hot encoding loss
         loss_class = F.mse_loss(
-            F.one_hot(y_true_obj[:, -1].long() - 1, num_classes=self.C),
+            F.one_hot(y_true_obj[:, -1].long() - 1, num_classes=self.C).float(),
             y_pred_obj[..., -self.C:],
             reduction=self.reduction
             ) / N
