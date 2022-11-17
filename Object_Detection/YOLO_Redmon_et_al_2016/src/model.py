@@ -152,7 +152,6 @@ if __name__ == "__main__":
     in_channels = 3
     H, W = 448, 448
     x_in = torch.randn(
-        # (N, in_channels, H, W), device=device, dtype=torch.float16
         (N, in_channels, H, W), device=device, dtype=torch.float32
         )
 
@@ -161,7 +160,6 @@ if __name__ == "__main__":
     B = 2
     C = 20
 
-    # model = YOLO(S=S, B=B, C=C).to(device).half()
     model = YOLO(S=S, B=B, C=C).to(device)
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Number of parameters for YOLOv1: {total_params:,}")
