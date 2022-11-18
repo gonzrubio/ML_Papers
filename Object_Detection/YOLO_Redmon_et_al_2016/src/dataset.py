@@ -41,7 +41,10 @@ class VOCDetection(Dataset):
 
     """
 
-    def __init__(self, root='../data/VOC', split='train', train=True, S=7):
+    def __init__(
+            self, root='../data/VOC',
+            split='train', train=True, augment=False, S=7
+            ):
         """Parameters.
 
         :param root: Path to folder storing the dataset,
@@ -50,10 +53,13 @@ class VOCDetection(Dataset):
         :param split: Dataset split, one of 'train', 'val' or 'test',
         defaults to 'train'
         :type split: str, optional
-        :param train: Training mode, returns the images and the encoded and
-        augmented ground truth labels if True, otherwise it returns the images
-        and the raw ground truth labels, defaults to True
+        :param train: Training mode, returns the images and the encoded ground
+        truth labels (tensor volume) if True, otherwise it returns the images
+        and the raw ground truth labels (as 2d tensor), defaults to True
         :type train: bool, optional
+        :param augment: Apply random data sugmentations if True, otherwise
+        leaves the original image, defaults to False
+        :type augment: bool, optional
         :param S: Number of grid cells to split the image in each direction,
         defaults to 7
         :type S: int, optional
@@ -64,7 +70,8 @@ class VOCDetection(Dataset):
         with open(os.path.join(root, split + '.txt')) as f:
             self.data = f.read().splitlines()
         self.train = train
-        self.transform = Augment() if self.train else ToTensorNormalize()
+        self.augment = augment
+        self.transform = Augment() if self.train and self.augment else ToTensorNormalize()
         self.S = S
 
     def __len__(self):
@@ -128,7 +135,7 @@ if __name__ == '__main__':
     def voc_detection():
         """Plot collated batches in train and eval mode."""
         for train in [False, True]:
-            data = VOCDetection(split='train', train=train)
+            data = VOCDetection(split='train', train=train, augment=False)
             dataloader = DataLoader(
                 data,
                 batch_size=5,
