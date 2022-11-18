@@ -23,12 +23,12 @@ class YOLO(nn.Module):
     The predictions are encoded as an S x S x (B * 5 + C) tensor.
     """
 
-    def __init__(self, S=7, B=2, C=20):
+    def __init__(self, S=7, B=2, C=20, fast=False):
         """Construct the detection network.
 
-        The network has 24 convolutional layers followed by 2 fully connected
-        layers. Alternating 1x1 convolutional layers reduce the feature space
-        from preceding layers to reduce computational complexity.
+        The network has 24 convolutional (9 if fast YOLO) layers followed by 2
+        fully connected layers. Alternating 1x1 convolutional layers reduce the
+        feature space from preceding layers to reduce computational complexity.
 
         :param S: Number of grid cells to split the image for each direction,
         defaults to 7
@@ -38,9 +38,13 @@ class YOLO(nn.Module):
         :type B: int, optional
         :param C: Number of class labels, defaults to 20
         :type C: int, optional
+        :param fast: Full sized YOLO (24 layers) if True otherwise fast YOLO
+        (9 layers), defaults to False
+        :type fast: bool, optional
         """
         super(YOLO, self).__init__()
 
+        self.fast = fast
         conv_blocks_config = [
             (7, 64, 2, 3),    # (kernel_size, out_channels, stride, padding)
             "M",              # 2x2-stride and 2x2-kernel_size maxpool
@@ -60,6 +64,29 @@ class YOLO(nn.Module):
             (3, 1024, 2, 1),
             (3, 1024, 1, 1),
             (3, 1024, 1, 1)
+            ] if not self.fast else [
+            # (7, 64, 2, 3),
+            # "M",
+            # (3, 192, 1, 1),
+            # "M",
+            # (1, 128, 1, 0),
+            # (3, 256, 1, 1),
+            # "M",
+            # [(1, 256, 1, 0), (3, 512, 1, 1), 1],
+            # "M",
+            # [(1, 512, 1, 0), (3, 1024, 1, 1), 1],
+            # (3, 1024, 2, 1),
+            (7, 16, 2, 3),
+            "M",
+            (1, 96, 1, 0),
+            "M",
+            (1, 128, 1, 0),
+            (1, 128, 1, 0),
+            "M",
+            [(1, 256, 1, 0), (1, 512, 1, 0), 1],
+            "M",
+            [(1, 512, 1, 0), (1, 1024, 1, 0), 1],
+            (3, 1024, 2, 1),
             ]
 
         in_channels = 3
@@ -80,10 +107,10 @@ class YOLO(nn.Module):
 
         self.fcs = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(1024 * 7 * 7, 4096),
+            nn.Linear(1024 * 7 * 7, 4096 if not self.fast else 512),
             nn.Dropout(0.5),
             nn.LeakyReLU(0.1),
-            nn.Linear(4096, S * S * (B * 5 + C))
+            nn.Linear(4096 if not self.fast else 512, S * S * (B * 5 + C))
             )
 
         self.sigmoid = nn.Sigmoid()
@@ -160,7 +187,7 @@ if __name__ == "__main__":
     B = 2
     C = 20
 
-    model = YOLO(S=S, B=B, C=C).to(device)
+    model = YOLO(S=S, B=B, C=C, fast=True).to(device)
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Number of parameters for YOLOv1: {total_params:,}")
 
