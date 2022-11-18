@@ -123,7 +123,7 @@ if __name__ == "__main__":
         'prefetch_factor': 2,
         'evaluate': False,
         'optimizer': 'SGD',
-        'learning_rate': 1e-4,
+        'learning_rate': 1e-2,  # TODO try 5e-3
         'epochs': 5000,
         'device': torch.device(
             'cuda:0' if torch.cuda.is_available() else 'cpu'
