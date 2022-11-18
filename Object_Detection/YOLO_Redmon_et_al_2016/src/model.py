@@ -76,16 +76,16 @@ class YOLO(nn.Module):
             # "M",
             # [(1, 512, 1, 0), (3, 1024, 1, 1), 1],
             # (3, 1024, 2, 1),
-            (7, 16, 2, 3),
+            (7, 64, 2, 3),
             "M",
-            (1, 96, 1, 0),
+            (3, 192, 1, 1),
             "M",
-            (1, 128, 1, 0),
-            (1, 128, 1, 0),
+            (3, 256, 1, 1),
+            (3, 512, 1, 1),
             "M",
-            [(1, 256, 1, 0), (1, 512, 1, 0), 1],
+            [(3, 512, 1, 1), (3, 512, 1, 1), 1],
             "M",
-            [(1, 512, 1, 0), (1, 1024, 1, 0), 1],
+            [(3, 1024, 1, 1), (3, 1024, 1, 1), 1],
             (3, 1024, 2, 1),
             ]
 
@@ -107,10 +107,10 @@ class YOLO(nn.Module):
 
         self.fcs = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(1024 * 7 * 7, 4096 if not self.fast else 512),
+            nn.Linear(1024 * 7 * 7, 4096 if not self.fast else 1024),
             nn.Dropout(0.5),
             nn.LeakyReLU(0.1),
-            nn.Linear(4096 if not self.fast else 512, S * S * (B * 5 + C))
+            nn.Linear(4096 if not self.fast else 1024, S * S * (B * 5 + C))
             )
 
         self.sigmoid = nn.Sigmoid()
