@@ -69,7 +69,7 @@ def train(model, loss_fn, optim, epochs, train_dataloader, eval_dataloader):
 
 def main(config):
 
-    model = YOLO().to(device=config['device'])
+    model = YOLO(fast=config['fast']).to(device=config['device'])
     loss_fn = YOLOv1Loss()
     optimizer = torch.optim.SGD(
         model.parameters(),
@@ -107,6 +107,7 @@ if __name__ == "__main__":
     # TODO lr schedule: 10x10-3, 73x10e-2, 26x10e-3, 26x10e-4
     config = {
         'root': '../data/VOC_10',
+        'fast': False,
         'batch_size': 1,
         'shuffle': False,
         'num_workers': 0,
