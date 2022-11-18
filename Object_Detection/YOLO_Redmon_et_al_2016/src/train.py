@@ -80,7 +80,7 @@ def main(config):
         )
 
     train_dataset = VOCDetection(
-        root=config['root'], split='train', train=True
+        root=config['root'], split='train', train=True, augment=config['augment']
         )
     train_dataloader = DataLoader(
         train_dataset, batch_size=config['batch_size'], shuffle=True,
@@ -91,7 +91,9 @@ def main(config):
 
     eval_dataloader = None
     if config['evaluate']:
-        eval_dataset = VOCDetection(split='val', train=False)
+        eval_dataset = VOCDetection(
+            root=config['root'], split='val', train=False, augment=False
+            )
         eval_dataloader = DataLoader(
             eval_dataset, batch_size=config['batch_size'], shuffle=False,
             num_workers=config['num_workers'], pin_memory=config['pin_memory'],
@@ -111,6 +113,7 @@ if __name__ == "__main__":
     config = {
         'root': '../data/VOC_10',
         'fast': True,
+        'augment': False,
         # 'batch_size': 64,
         'batch_size': 16,
         # 'shuffle': True,
