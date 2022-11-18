@@ -66,7 +66,7 @@ def train(model, loss_fn, optim, epochs, train_dataloader, eval_dataloader):
 
         # if eval_dataloader:
         #     mAP = evaluate()
-        # print(f"{epoch + 1} {loss_epoch:.4e}")
+        print(f"{epoch + 1} {loss_epoch:.4e}")
         # print(f"{epoch}.{batch_idx} {loss_epoch:.4e} {mAP:.4e}")
 
 
@@ -109,18 +109,22 @@ if __name__ == "__main__":
 
     # TODO lr schedule: 10x10-3, 73x10e-2, 26x10e-3, 26x10e-4
     config = {
-        'root': '../data/VOC',
+        'root': '../data/VOC_10',
         'fast': True,
-        'batch_size': 64,
-        'shuffle': True,
-        'num_workers': 2,
+        # 'batch_size': 64,
+        'batch_size': 16,
+        # 'shuffle': True,
+        'shuffle': False,
+        # 'num_workers': 2,
+        'num_workers': 0,
         'pin_memory': True,
         'drop_last': False,
-        'prefetch_factor': 4,
+        # 'prefetch_factor': 4,
+        'prefetch_factor': 2,
         'evaluate': False,
         'optimizer': 'SGD',
         'learning_rate': 1e-4,
-        'epochs': 100,
+        'epochs': 5000,
         'device': torch.device(
             'cuda:0' if torch.cuda.is_available() else 'cpu'
             )
