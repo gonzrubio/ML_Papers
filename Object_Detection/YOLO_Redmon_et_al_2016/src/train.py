@@ -32,27 +32,30 @@ def train(model, loss_fn, optim, epochs, train_dataloader, eval_dataloader):
 
     device = next(model.parameters()).device
     torch.backends.cudnn.benchmark = True
-    scaler = torch.cuda.amp.GradScaler()
+    # scaler = torch.cuda.amp.GradScaler()
 
     for epoch in range(epochs):
 
         loss_epoch = 0.
         for batch_idx, (image, ground_truth) in enumerate(train_dataloader):
 
-            with torch.cuda.amp.autocast():
-                prediction = model(image.to(device))
-                loss = loss_fn(prediction, ground_truth.to(device))
+            # with torch.cuda.amp.autocast():
+            #     prediction = model(image.to(device))
+            #     loss = loss_fn(prediction, ground_truth.to(device))
+
+            prediction = model(image.to(device))
+            loss = loss_fn(prediction, ground_truth.to(device))
 
             loss_coord, loss_conf_obj, loss_conf_noobj, loss_class = loss
             loss = sum(loss)
             loss_epoch += loss.item()
 
             optim.zero_grad(set_to_none=True)
-            # loss.backward()
-            scaler.scale(loss).backward()
-            # optim.step()
-            scaler.step(optim)
-            scaler.update()
+            loss.backward()
+            optim.step()
+            # scaler.scale(loss).backward()
+            # scaler.step(optim)
+            # scaler.update()
             print(
                 f"{epoch}.{batch_idx} ",
                 f"{loss_coord.item():.4e}, {loss_conf_obj.item():.4e},",
@@ -61,10 +64,10 @@ def train(model, loss_fn, optim, epochs, train_dataloader, eval_dataloader):
 
         loss_epoch /= len(train_dataloader)
 
-        if eval_dataloader:
-            mAP = evaluate()
-
-        print(f"{epoch}.{batch_idx} {loss_epoch:.4e} {mAP:.4e}")
+        # if eval_dataloader:
+        #     mAP = evaluate()
+        # print(f"{epoch + 1} {loss_epoch:.4e}")
+        # print(f"{epoch}.{batch_idx} {loss_epoch:.4e} {mAP:.4e}")
 
 
 def main(config):
@@ -106,18 +109,18 @@ if __name__ == "__main__":
 
     # TODO lr schedule: 10x10-3, 73x10e-2, 26x10e-3, 26x10e-4
     config = {
-        'root': '../data/VOC_10',
-        'fast': False,
-        'batch_size': 1,
-        'shuffle': False,
-        'num_workers': 0,
+        'root': '../data/VOC',
+        'fast': True,
+        'batch_size': 64,
+        'shuffle': True,
+        'num_workers': 2,
         'pin_memory': True,
         'drop_last': False,
-        'prefetch_factor': 2,
+        'prefetch_factor': 4,
         'evaluate': False,
         'optimizer': 'SGD',
         'learning_rate': 1e-4,
-        'epochs': 135,
+        'epochs': 100,
         'device': torch.device(
             'cuda:0' if torch.cuda.is_available() else 'cpu'
             )
