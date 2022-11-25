@@ -1,12 +1,13 @@
 # Data
-*.zip
-*.jpg
-*.pt
-*.png
-*.gz
-*.cpkl
-*/tensorboard/*
-*/runs/*
+**/Images/
+**/Annotations/
+**/train.txt
+**/val.txt
+**/test.txt
+
+# Logs
+# */tensorboard/*
+# */runs/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
