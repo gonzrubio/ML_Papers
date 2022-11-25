@@ -6,6 +6,9 @@ Created on Sun Nov 13 14:18:59 2022
 @author: gonzr
 """
 
+import datetime
+import json
+import os
 import torch
 
 from torch.utils.data import DataLoader
@@ -17,18 +20,6 @@ from model import YOLO
 
 
 def train(model, loss_fn, optim, epochs, train_dataloader, eval_dataloader):
-    # TODO: save config, trained model and tensorboard plots
-    # Tensorboard: loss(es), output on val set, validation metric(s),
-    # activations at different layers and histogram weights
-    #
-    # save to directory:
-    # YOLO_Redmond_et_al_2016/models/
-    # ├─ run_name/
-    # ├  ├── weights/
-    # ├  ├── tensorboard/
-    # ├  └── config.txt/json
-
-    # TODO log plots and metrics in tensorboard
 
     device = next(model.parameters()).device
     torch.backends.cudnn.benchmark = True
@@ -71,8 +62,26 @@ def train(model, loss_fn, optim, epochs, train_dataloader, eval_dataloader):
 
 
 def main(config):
+    # TODO: save trained model and tensorboard plots
+    # Tensorboard: loss(es), output on val set, validation metric(s),
+    # activations at different layers and histogram weights
+    #
+    # save to:
+    # YOLO_Redmond_et_al_2016/
+    # ├─ models/
+    # ├  ├── run/
+    # ├  ├   ├── weights/
+    # ├  ├   ├── tensorboard/
+    # ├  ├   └── config.json
 
-    model = YOLO(fast=config['fast']).to(device=config['device'])
+    run = '{date:%Y-%m-%d_%H-%M-%S}'.format(date=datetime.datetime.now())
+    save_dir = os.path.join('..', 'models', run)
+    os.makedirs(save_dir)
+
+    with open(os.path.join(save_dir, 'config.json'), 'w') as outfile:
+        json.dump(config, outfile)
+
+    model = YOLO(fast=config['fast']).to(device=torch.device(config['device']))
     loss_fn = YOLOv1Loss()
     optimizer = torch.optim.SGD(
         model.parameters(),
@@ -128,9 +137,7 @@ if __name__ == "__main__":
         'optimizer': 'SGD',
         'learning_rate': 1e-2,  # TODO try 5e-3
         'epochs': 5000,
-        'device': torch.device(
-            'cuda:0' if torch.cuda.is_available() else 'cpu'
-            )
+        'device': 'cuda:0' if torch.cuda.is_available() else 'cpu'
         }
 
     main(config)
