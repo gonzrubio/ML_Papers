@@ -13,7 +13,7 @@ import torch
 
 from torch.utils.data import DataLoader
 
-from dataset import VOCDetection
+from datasets import VOCDetection
 # from evaluate import evaluate
 from loss import YOLOv1Loss
 from model import YOLO
