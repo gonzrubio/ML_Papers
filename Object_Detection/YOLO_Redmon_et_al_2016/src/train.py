@@ -123,7 +123,7 @@ def main(config):
 if __name__ == "__main__":
 
     config = {
-        'root': '../data/VOC_100',
+        'root': os.path.join('..', 'data', 'VOC_100'),
         'fast': True,
         'augment': False,
         'batch_size': 16,
