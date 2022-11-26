@@ -66,7 +66,7 @@ def train(model, loss_fn, optim, epochs, train_loader, eval_loader, save_dir):
         'loss': loss,
         'val': None,
         # 'val': mAP if eval_loader else None,
-        }, os.path.join(save_dir, 'checkpoint'))
+        }, os.path.join(save_dir, 'checkpoint.tar'))
 
 
 def main(config):
@@ -122,14 +122,11 @@ def main(config):
 
 if __name__ == "__main__":
 
-    # TODO lr schedule: 10x10-3, 73x10e-2, 26x10e-3, 26x10e-4
     config = {
         'root': '../data/VOC_10',
         'fast': True,
         'augment': False,
-        # 'batch_size': 64,
         'batch_size': 16,
-        # 'shuffle': True,
         'shuffle': False,
         # 'num_workers': 2,
         'num_workers': 0,
@@ -139,7 +136,7 @@ if __name__ == "__main__":
         'prefetch_factor': 2,
         'evaluate': False,
         'optimizer': 'SGD',
-        'learning_rate': 1e-2,  # TODO try 5e-3
+        'learning_rate': 1e-2,
         'epochs': 1000,
         'device': 'cuda:0' if torch.cuda.is_available() else 'cpu'
         }
