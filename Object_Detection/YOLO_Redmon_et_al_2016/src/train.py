@@ -14,12 +14,12 @@ import torch
 from torch.utils.data import DataLoader
 
 from dataset import VOCDetection
-from evaluate import evaluate
+# from evaluate import evaluate
 from loss import YOLOv1Loss
 from model import YOLO
 
 
-def train(model, loss_fn, optim, epochs, train_dataloader, eval_dataloader):
+def train(model, loss_fn, optim, epochs, train_loader, eval_loader, save_dir):
 
     device = next(model.parameters()).device
     torch.backends.cudnn.benchmark = True
@@ -28,7 +28,7 @@ def train(model, loss_fn, optim, epochs, train_dataloader, eval_dataloader):
     for epoch in range(epochs):
 
         loss_epoch = 0.
-        for batch_idx, (image, ground_truth) in enumerate(train_dataloader):
+        for batch_idx, (image, ground_truth) in enumerate(train_loader):
 
             # with torch.cuda.amp.autocast():
             #     prediction = model(image.to(device))
@@ -53,24 +53,28 @@ def train(model, loss_fn, optim, epochs, train_dataloader, eval_dataloader):
                 f"{loss_conf_noobj.item():.4e}, {loss_class.item():.4e}"
                 )
 
-        loss_epoch /= len(train_dataloader)
+        loss_epoch /= len(train_loader)
 
-        # if eval_dataloader:
+        # if eval_loader:
         #     mAP = evaluate()
         print(f"{epoch + 1} {loss_epoch:.4e}")
         # print(f"{epoch}.{batch_idx} {loss_epoch:.4e} {mAP:.4e}")
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optim.state_dict(),
+        'loss': loss,
+        'val': None,
+        # 'val': mAP if eval_loader else None,
+        }, os.path.join(save_dir, 'checkpoint'))
 
 
 def main(config):
-    # TODO: save trained model and tensorboard plots
-    # Tensorboard: loss(es), output on val set, validation metric(s),
-    # activations at different layers and histogram weights
-    #
-    # save to:
+    # saves to:
     # YOLO_Redmond_et_al_2016/
     # ├─ models/
     # ├  ├── run/
-    # ├  ├   ├── weights/
+    # ├  ├   ├── checkpoint/
     # ├  ├   ├── tensorboard/
     # ├  ├   └── config.json
 
@@ -112,7 +116,7 @@ def main(config):
 
     train(
         model, loss_fn, optimizer, config['epochs'],
-        train_dataloader, eval_dataloader
+        train_dataloader, eval_dataloader, save_dir
         )
 
 
@@ -136,7 +140,7 @@ if __name__ == "__main__":
         'evaluate': False,
         'optimizer': 'SGD',
         'learning_rate': 1e-2,  # TODO try 5e-3
-        'epochs': 5000,
+        'epochs': 1000,
         'device': 'cuda:0' if torch.cuda.is_available() else 'cpu'
         }
 
