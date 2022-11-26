@@ -116,8 +116,8 @@ def main(config):
             )
 
     train(
-        model, loss_fn, optimizer, config['epochs'],
-        train_dataloader, eval_dataloader, config['device'], save_dir
+        model, loss_fn, optimizer, config['epochs'], train_dataloader,
+        eval_dataloader, torch.device(config['device']), save_dir
         )
 
 
