@@ -19,9 +19,10 @@ from loss import YOLOv1Loss
 from model import YOLO
 
 
-def train(model, loss_fn, optim, epochs, train_loader, eval_loader, save_dir):
+def train(
+    model, loss_fn, optim, epochs, train_loader, eval_loader, device, save_dir
+        ):
 
-    device = next(model.parameters()).device
     torch.backends.cudnn.benchmark = True
     # scaler = torch.cuda.amp.GradScaler()
 
@@ -116,7 +117,7 @@ def main(config):
 
     train(
         model, loss_fn, optimizer, config['epochs'],
-        train_dataloader, eval_dataloader, save_dir
+        train_dataloader, eval_dataloader, config['device'], save_dir
         )
 
 
