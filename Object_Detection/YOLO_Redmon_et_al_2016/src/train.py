@@ -123,7 +123,7 @@ def main(config):
 if __name__ == "__main__":
 
     config = {
-        'root': '../data/VOC_10',
+        'root': '../data/VOC_100',
         'fast': True,
         'augment': False,
         'batch_size': 16,
@@ -136,7 +136,7 @@ if __name__ == "__main__":
         'prefetch_factor': 2,
         'evaluate': False,
         'optimizer': 'SGD',
-        'learning_rate': 1e-2,
+        'learning_rate': 5e-4,
         'epochs': 1000,
         'device': 'cuda:0' if torch.cuda.is_available() else 'cpu'
         }
