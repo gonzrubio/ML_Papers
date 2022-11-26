@@ -136,7 +136,7 @@ if __name__ == "__main__":
         'prefetch_factor': 2,
         'evaluate': False,
         'optimizer': 'SGD',
-        'learning_rate': 1e-3,
+        'learning_rate': 1e-2,
         'epochs': 1000,
         'device': 'cuda:0' if torch.cuda.is_available() else 'cpu'
         }
