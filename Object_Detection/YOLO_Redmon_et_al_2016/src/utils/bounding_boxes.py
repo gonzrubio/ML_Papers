@@ -8,6 +8,30 @@ Created on Fri Oct 28 13:22:59 2022
 
 import torch
 
+from torchvision.ops import nms
+
+
+def clean_up_predictions(pred_labels):
+    """Convert the predicted tensor to a list of objects.
+
+    Performs non-maximum supression on the predicted labels above a probability
+    score and sorts the kept elements in decreasing order of score.
+
+    :param pred_labels: The predicted output tensor
+    :type pred_labels: torch.Tensor
+    :return: The filtered predicted tensor as a list of objects
+    :rtype: torch.Tensor
+
+    """
+    pred_labels = decode_predicted_labels(pred_labels)
+    pred_labels = pred_labels[pred_labels[:, 0] > 0.4]
+    idx_keep = nms(
+        boxes=yolo_to_voc_bbox(pred_labels[:, 1:5], (1, 1)),
+        scores=pred_labels[:, 0], iou_threshold=0.5
+        )
+
+    return pred_labels[idx_keep, :]
+
 
 def decode_predicted_labels(predicted_labels):
     """Decode the S x S x 30 predicted tensor into a list of predicted objects.

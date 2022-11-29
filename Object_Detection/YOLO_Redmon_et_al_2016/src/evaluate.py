@@ -13,8 +13,8 @@ from torch.utils.data import DataLoader
 
 from datasets import VOCDetection
 from model import YOLO
-from torchvision.ops import nms
-from utils.bounding_boxes import decode_predicted_labels, yolo_to_voc_bbox
+
+from utils.bounding_boxes import clean_up_predictions
 
 
 def evaluate(model, dataloader, device, training=False):
@@ -22,13 +22,7 @@ def evaluate(model, dataloader, device, training=False):
     # f1_score = 0
     for image, labels, batch_idx in dataloader:
         pred_labels = model(image.to(device=device))
-        pred_labels = decode_predicted_labels(pred_labels)
-        pred_labels = pred_labels[pred_labels[:, 0] > 0.4]
-        idx_keep = nms(  # elements kept sorted by decreasing order of score
-            boxes=yolo_to_voc_bbox(pred_labels[:, 1:5], (1, 1)),
-            scores=pred_labels[:, 0], iou_threshold=0.5
-            )
-        pred_labels = pred_labels[idx_keep, :]
+        pred_labels = clean_up_predictions(pred_labels)
 
         # tp, fp, fn = tp_fp_fn(y, nms(pred_labels))
         # compute and return mAP
