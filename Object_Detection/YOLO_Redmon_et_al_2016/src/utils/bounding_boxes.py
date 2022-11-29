@@ -9,6 +9,29 @@ Created on Fri Oct 28 13:22:59 2022
 import torch
 
 
+def decode_predicted_labels(predicted_labels):
+    """Decode the S x S x 30 predicted tensor into a list of predicted objects.
+
+    :param predicted_labels: The (N, S, S, 30) predictions tensor. The bounding
+    box with the highest probability of contatining an object is kept.
+    :type predicted_labels: torch.Tensor
+    :return: The list of predicted objects
+    :rtype: torch.Tensor
+
+    """
+    predicted_labels = predicted_labels.reshape(-1, 30)
+    decoded_predicted_labels = torch.empty((predicted_labels.shape[0], 6))
+
+    for cell, label in enumerate(predicted_labels):
+        if label[0] > label[5]:
+            decoded_predicted_labels[cell, :5] = label[:5]
+        else:
+            decoded_predicted_labels[cell, :5] = label[5:10]
+        decoded_predicted_labels[cell, 5:] = torch.argmax(label[10:])
+
+    return decoded_predicted_labels
+
+
 def iou(bbox_pred, bbox_true):
     """Compute the intersection over union.
 
