@@ -110,7 +110,7 @@ def main(config):
             )
         eval_dataloader = DataLoader(
             eval_dataset, batch_size=config['batch_size'], shuffle=False,
-            num_workers=config['num_workers'], pin_memory=config['pin_memory'],
+            num_workers=config['num_workers'], pin_memory=True,
             collate_fn=eval_dataset.collate_fn, drop_last=False,
             prefetch_factor=config['prefetch_factor']
             )
@@ -131,7 +131,6 @@ if __name__ == "__main__":
         'shuffle': False,
         # 'num_workers': 2,
         'num_workers': 0,
-        'pin_memory': True,
         'drop_last': False,
         # 'prefetch_factor': 4,
         'prefetch_factor': 2,
