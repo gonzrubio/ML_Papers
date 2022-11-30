@@ -14,19 +14,27 @@ from torch.utils.data import DataLoader
 from datasets import VOCDetection
 from model import YOLO
 
-from utils.bounding_boxes import clean_up_predictions
+from utils.bounding_boxes import detect_objects
 
 
 def evaluate(model, dataloader, device, training=False):
-    # compute and return presicion, recall and F1
-    # f1_score = 0
-    for image, labels, batch_idx in dataloader:
-        pred_labels = model(image.to(device=device))
-        pred_labels = clean_up_predictions(pred_labels)
+    # compute num_gt, num_pred, tp, fp, fn, precision, recall, F1, mAP
 
-        # tp, fp, fn = tp_fp_fn(y, nms(pred_labels))
-        # compute and return mAP
+    num_gt = 0
+    num_pred = 0
+
+    model.eval()
+    with torch.no_grad():
+        for image, labels, batch_idx in dataloader:
+            pred_labels = model(image.to(device=device))
+            pred_labels = detect_objects(pred_labels)
+            num_gt += len(labels)
+            num_pred += len(pred_labels)
+            
+
+    model.train()
     return pred_labels
+    # return num_gt, num_pred, tp, fp, fn, precision, recall, F1, mAP
 
 
 def main(config):
@@ -47,7 +55,6 @@ def main(config):
 
     model = YOLO(fast=config['fast']).to(device=torch.device(config['device']))
     model.load_state_dict(checkpoint['model_state_dict'])
-    model.eval()
 
     results = evaluate(
         model, dataloader, torch.device(config['device']), training=False
@@ -55,7 +62,7 @@ def main(config):
 
     # plot precision-recall
     # plot threshold-F1
-    # plot predictions after nms (all or randomly selected)
+    # plot predictions (all or randomly selected)
     # save plots in figures/ (write directory structure in docstring)
 
 
