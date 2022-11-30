@@ -49,7 +49,7 @@ def train(
             # scaler.step(optim)
             # scaler.update()
             print(
-                f"{epoch + 1}.{batch_idx + 1} ",
+                f"{epoch + 1}.{batch_idx + 1}",
                 f"conf_obj: {loss_conf_obj.item():.4e}",
                 f"coord: {loss_coord.item():.4e}",
                 f"class: {loss_class.item():.4e}",
@@ -111,7 +111,7 @@ def main(config):
     train_dataloader = DataLoader(
         train_dataset, batch_size=config['batch_size'], shuffle=True,
         num_workers=config['num_workers'], collate_fn=train_dataset.collate_fn,
-        pin_memory=config['pin_memory'], drop_last=config['drop_last'],
+        pin_memory=True, drop_last=config['drop_last'],
         prefetch_factor=config['prefetch_factor']
         )
 
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         'evaluate': False,
         'optimizer': 'SGD',
         'learning_rate': 5e-4,
-        'epochs': 1000,
+        'epochs': 4000,
         'device': 'cuda:0' if torch.cuda.is_available() else 'cpu'
         }
 
