@@ -11,7 +11,7 @@ import torch
 from torchvision.ops import nms
 
 
-def clean_up_predictions(pred_labels):
+def detect_objects(pred_labels):
     """Convert the predicted tensor to a list of objects.
 
     Performs non-maximum supression on the predicted labels above a probability
