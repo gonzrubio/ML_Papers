@@ -38,7 +38,7 @@ def train(
             prediction = model(image.to(device))
             loss = loss_fn(prediction, ground_truth.to(device))
 
-            loss_coord, loss_conf_obj, loss_conf_noobj, loss_class = loss
+            loss_conf_obj, loss_coord, loss_class, loss_conf_noobj = loss
             loss = sum(loss)
             loss_epoch += loss.item()
 
@@ -50,10 +50,10 @@ def train(
             # scaler.update()
             print(
                 f"{epoch + 1}.{batch_idx + 1} ",
-                f"coord: {loss_coord.item():.4e}",
                 f"conf_obj: {loss_conf_obj.item():.4e}",
-                f"conf_noobj: {loss_conf_noobj.item():.4e}",
+                f"coord: {loss_coord.item():.4e}",
                 f"class: {loss_class.item():.4e}",
+                f"conf_noobj: {loss_conf_noobj.item():.4e}",
                 f"total: {loss.item():.4e}"
                 )
 
