@@ -24,10 +24,10 @@ def detect_objects(pred_labels):
 
     """
     pred_labels = decode_predicted_labels(pred_labels)
-    pred_labels = pred_labels[pred_labels[:, 0] > 0.4]
+    pred_labels = pred_labels[pred_labels[:, 0] > 0.2]
     idx_keep = nms(
         boxes=yolo_to_voc_bbox(pred_labels[:, 1:5], (1, 1)),
-        scores=pred_labels[:, 0], iou_threshold=0.5
+        scores=pred_labels[:, 0], iou_threshold=0.8
         )
 
     return pred_labels[idx_keep, :]
