@@ -69,7 +69,10 @@ class YOLOv1Loss(nn.Module):
         N = y_true.shape[0]
 
         # reduce pred and true to shape [num_obj, B*5+C] and [num_obj, 5]
-        mask_obj = (y_true > 0)[..., -1]
+        # the mask_obj indicates where there is an entry with a positive width
+        # since x_center, y_center and class_id could be zero and would not
+        # help in indexing the cells containing a graound truth
+        mask_obj = (y_true > 0)[..., -2]
         mask_noobj = torch.logical_not(mask_obj)
 
         y_true_obj = y_true[mask_obj]       # [num_obj, 5]
@@ -107,12 +110,12 @@ class YOLOv1Loss(nn.Module):
 
         # one hot encoding loss
         loss_class = F.mse_loss(
-            F.one_hot(y_true_obj[:, -1].long() - 1, num_classes=self.C).float(),
+            F.one_hot(y_true_obj[:, -1].long(), num_classes=self.C).float(),
             y_pred_obj[..., -self.C:],
             reduction=self.reduction
             ) / N
 
-        return loss_coord, loss_conf_obj, loss_conf_noobj, loss_class
+        return loss_conf_obj, loss_coord, loss_class, loss_conf_noobj
 
     def _max_confidence_score(self, y_true_obj, y_pred_obj):
         """Find the bounding box b responsible for detecting the object.
@@ -150,7 +153,7 @@ if __name__ == "__main__":
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    N = 2**1
+    N = 2**0
     S = 7
     B = 2
     C = 20
@@ -164,23 +167,22 @@ if __name__ == "__main__":
     y_true = torch.zeros((N, S, S, 5), device=device)
 
     for b in range(N):
-        for obj in torch.randint(1, S**2, (num_objects,)):
-            cell = random.randint(0, S**2 - 1)
+        for cell in torch.randint(0, S**2 - 1, (num_objects,)):
             row, col = cell // S, cell % S
             y_true[b, row, col, :-1] = torch.rand(size=(4, ))
-            y_true[b, row, col, -1] = torch.randint(low=1, high=C, size=(1, ))
+            y_true[b, row, col, -1] = torch.randint(high=C-1, size=(1, ))
 
             # perfect prediction
-            bbox = torch.randint(low=0, high=B-1, size=(1, ))
+            bbox = torch.randint(high=B-1, size=(1, ))
             y_pred[b, row, col, bbox * 5] = 1.
             y_pred[b, row, col, bbox * 5 + 1:bbox * 5 + 5] = y_true[
                 b, row, col, :-1
                 ]
             y_pred[b, row, col, -C:] = F.one_hot(
-                y_true[b, row, col, -1].long()-1,
+                y_true[b, row, col, -1].long(),
                 num_classes=C
                 )
 
     loss_fn = YOLOv1Loss(lambdas=[5, 0.5], S=S, B=B, C=C, reduction='sum')
 
-    print(sum(loss_fn(y_pred, y_true)))
+    print(loss_fn(y_pred, y_true))
