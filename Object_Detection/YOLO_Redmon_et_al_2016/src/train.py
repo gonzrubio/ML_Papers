@@ -14,7 +14,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from datasets import VOCDetection
-# from evaluate import evaluate
+from evaluate import evaluate
 from loss import YOLOv1Loss
 from model import YOLO
 
@@ -49,25 +49,37 @@ def train(
             # scaler.step(optim)
             # scaler.update()
             print(
-                f"{epoch}.{batch_idx} ",
-                f"{loss_coord.item():.4e}, {loss_conf_obj.item():.4e},",
-                f"{loss_conf_noobj.item():.4e}, {loss_class.item():.4e}"
+                f"{epoch + 1}.{batch_idx + 1} ",
+                f"coord: {loss_coord.item():.4e}",
+                f"conf_obj: {loss_conf_obj.item():.4e}",
+                f"conf_noobj: {loss_conf_noobj.item():.4e}",
+                f"class: {loss_class.item():.4e}",
+                f"total: {loss.item():.4e}"
                 )
 
         loss_epoch /= len(train_loader)
 
-        # if eval_loader:
-        #     mAP = evaluate()
-        print(f"{epoch + 1} {loss_epoch:.4e}")
-        # print(f"{epoch}.{batch_idx} {loss_epoch:.4e} {mAP:.4e}")
-    torch.save({
+        if eval_loader:
+            results = evaluate()
+            num_gt, num_pred, tp, fp, fn, precision, recall, F1, mAP = results
+            print(
+                f"epoch: {epoch + 1} num_gt: {num_gt} num_pred: {num_pred}",
+                f"recall: {recall:.4e} F1: {F1.item():.4e} ",
+                f"mAP: {mAP.item():.4e}"
+                )
+
+    checkpoint = {
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optim.state_dict(),
         'loss': loss,
         'val': None,
         # 'val': mAP if eval_loader else None,
-        }, os.path.join(save_dir, 'checkpoint.tar'))
+        }
+
+    if eval_loader:
+        print(checkpoint)  # append results
+    torch.save(checkpoint, os.path.join(save_dir, 'checkpoint.tar'))
 
 
 def main(config):
