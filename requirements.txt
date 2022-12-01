@@ -5,3 +5,4 @@ pytorch==1.12.1
 cudatoolkit==11.6.0
 matplotlib==3.5.2
 python-wget==3.2
+tqdm==4.64.1
