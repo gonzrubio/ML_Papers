@@ -11,7 +11,7 @@ import torch
 from torchvision.ops import nms
 
 
-def detect_objects(pred_labels):
+def detect_objects(pred_labels, prob_threshold=0.2, iou_threshold=0.8):
     """Convert the predicted tensor to a list of objects.
 
     Performs non-maximum supression on the predicted labels above a probability
@@ -19,15 +19,19 @@ def detect_objects(pred_labels):
 
     :param pred_labels: The predicted output tensor
     :type pred_labels: torch.Tensor
+    :param prob_threshold: The probability threshold
+    :type prob_threshold: float
+    :param iou_threshold: The iou threshold
+    :type iou_threshold: float
     :return: The filtered predicted tensor as a list of objects
     :rtype: torch.Tensor
 
     """
     pred_labels = decode_predicted_labels(pred_labels)
-    pred_labels = pred_labels[pred_labels[:, 0] > 0.2]
+    pred_labels = pred_labels[pred_labels[:, 0] > prob_threshold]
     idx_keep = nms(
         boxes=yolo_to_voc_bbox(pred_labels[:, 1:5], (1, 1)),
-        scores=pred_labels[:, 0], iou_threshold=0.8
+        scores=pred_labels[:, 0], iou_threshold=iou_threshold
         )
 
     return pred_labels[idx_keep, :]

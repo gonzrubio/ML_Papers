@@ -22,15 +22,17 @@ def evaluate(model, dataloader, device, training=False):
 
     num_gt = 0
     num_pred = 0
+    pred_labels_total = [None] * len(dataloader)
 
     model.eval()
     with torch.no_grad():
-        for image, labels, batch_idx in dataloader:
+        for ii, (image, labels, batch_idx) in enumerate(dataloader):
             pred_labels = model(image.to(device=device))
-            pred_labels = detect_objects(pred_labels)
+            pred_labels = detect_objects(pred_labels, 0.1, 0.9)
+            pred_labels_total[ii] = pred_labels
             num_gt += len(labels)
             num_pred += len(pred_labels)
-            
+
 
     model.train()
     return pred_labels
