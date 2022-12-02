@@ -10,36 +10,54 @@ import os
 import torch
 
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from datasets import VOCDetection
 from model import YOLO
-
+from utils.metrics import eval_metrics
 from utils.bounding_boxes import detect_objects
 
 
 def evaluate(model, dataloader, device, training=False):
-    # compute num_gt, num_pred, tp, fp, fn, precision, recall, F1, mAP
+    """Evaluate the model on a dataset and compute the performance metrics.
 
-    num_gt = 0
-    num_pred = 0
-    pred_labels_total = [None] * len(dataloader)
+    :param model: The object detection model
+    :type model: torch.nn.Module
+    :param dataloader: The evaluation dataloader
+    :type dataloader: torch.utils.data.dataloader.DataLoader
+    :param device: Where to perform the computations
+    :type device: torch.device
+    :param training: If called from within the training loop, defaults to False
+    :type training: bool, optional
+    :return: The evaluation metrics
+    :rtype: tuple
+
+    """
+    num_gt, num_pred = 0, 0
+    pred_all, gt_all = torch.tensor([]), torch.tensor([])
 
     model.eval()
     with torch.no_grad():
-        for ii, (image, labels, batch_idx) in enumerate(dataloader):
-            pred_labels = model(image.to(device=device))
-            pred_labels = detect_objects(pred_labels, 0.1, 0.9)
-            pred_labels_total[ii] = pred_labels
-            num_gt += len(labels)
-            num_pred += len(pred_labels)
+        for ii, sample in enumerate(tqdm(dataloader, desc='Evaluating')):
+            image, gt, batch_idx = sample
+            pred = model(image.to(device=device))
+            pred = detect_objects(pred, prob_threshold=0.15, iou_threshold=0.9)
 
+            num_gt += len(gt)
+            num_pred += len(pred)
+            pred_all = torch.cat((pred, pred_all))
+            gt_all = torch.cat((gt, gt_all))
 
-    model.train()
-    return pred_labels
-    # return num_gt, num_pred, tp, fp, fn, precision, recall, F1, mAP
+    results = eval_metrics(pred_all, gt_all)
+
+    if training:
+        return num_gt, num_pred, results
+
+    return pred_all, gt_all, results
 
 
 def main(config):
+    """Evaluate the model and save the results."""
     dataset = VOCDetection(
         root=os.path.join('..', 'data', config['dataset']),
         split=config['split'], train=False, augment=False
@@ -64,7 +82,8 @@ def main(config):
 
     # plot precision-recall
     # plot threshold-F1
-    # plot predictions (all or randomly selected)
+    # pretty print AP and mAP
+    # plot all predictions
     # save plots in figures/ (write directory structure in docstring)
 
 
