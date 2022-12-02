@@ -65,20 +65,9 @@ class YOLO(nn.Module):
             (3, 1024, 1, 1),
             (3, 1024, 1, 1)
             ] if not self.fast else [
-            # (7, 64, 2, 3),
-            # "M",
-            # (3, 192, 1, 1),
-            # "M",
-            # (1, 128, 1, 0),
-            # (3, 256, 1, 1),
-            # "M",
-            # [(1, 256, 1, 0), (3, 512, 1, 1), 1],
-            # "M",
-            # [(1, 512, 1, 0), (3, 1024, 1, 1), 1],
-            # (3, 1024, 2, 1),
             (7, 64, 2, 3),
             "M",
-            (3, 192, 1, 1),
+            (3, 128, 1, 1),
             "M",
             (3, 256, 1, 1),
             (3, 512, 1, 1),
@@ -105,12 +94,13 @@ class YOLO(nn.Module):
                     in_channels = self._make_conv_block(in_channels, blk[0])
                     in_channels = self._make_conv_block(in_channels, blk[1])
 
+        out_features = 4096 if not self.fast else 2048
         self.fcs = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(1024 * 7 * 7, 4096 if not self.fast else 1024),
+            nn.Linear(1024 * 7 * 7, out_features),
             nn.Dropout(0.5),
             nn.LeakyReLU(0.1),
-            nn.Linear(4096 if not self.fast else 1024, S * S * (B * 5 + C))
+            nn.Linear(out_features, S * S * (B * 5 + C))
             )
 
         self.sigmoid = nn.Sigmoid()

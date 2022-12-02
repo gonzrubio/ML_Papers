@@ -6,38 +6,30 @@ Created on Sun Nov 13 14:18:59 2022
 @author: gonzr
 """
 
+import datetime
+import json
+import os
 import torch
 
 from torch.utils.data import DataLoader
 
-from dataset import VOCDetection
+from datasets import VOCDetection
 from evaluate import evaluate
 from loss import YOLOv1Loss
 from model import YOLO
 
 
-def train(model, loss_fn, optim, epochs, train_dataloader, eval_dataloader):
-    # TODO: save config, trained model and tensorboard plots
-    # Tensorboard: loss(es), output on val set, validation metric(s),
-    # activations at different layers and histogram weights
-    #
-    # save to directory:
-    # YOLO_Redmond_et_al_2016/models/
-    # ├─ run_name/
-    # ├  ├── weights/
-    # ├  ├── tensorboard/
-    # ├  └── config.txt/json
+def train(
+    model, loss_fn, optim, epochs, train_loader, eval_loader, device, save_dir
+        ):
 
-    # TODO log plots and metrics in tensorboard
-
-    device = next(model.parameters()).device
     torch.backends.cudnn.benchmark = True
     # scaler = torch.cuda.amp.GradScaler()
 
     for epoch in range(epochs):
 
         loss_epoch = 0.
-        for batch_idx, (image, ground_truth) in enumerate(train_dataloader):
+        for batch_idx, (image, ground_truth) in enumerate(train_loader):
 
             # with torch.cuda.amp.autocast():
             #     prediction = model(image.to(device))
@@ -46,7 +38,7 @@ def train(model, loss_fn, optim, epochs, train_dataloader, eval_dataloader):
             prediction = model(image.to(device))
             loss = loss_fn(prediction, ground_truth.to(device))
 
-            loss_coord, loss_conf_obj, loss_conf_noobj, loss_class = loss
+            loss_conf_obj, loss_coord, loss_class, loss_conf_noobj = loss
             loss = sum(loss)
             loss_epoch += loss.item()
 
@@ -57,22 +49,57 @@ def train(model, loss_fn, optim, epochs, train_dataloader, eval_dataloader):
             # scaler.step(optim)
             # scaler.update()
             print(
-                f"{epoch}.{batch_idx} ",
-                f"{loss_coord.item():.4e}, {loss_conf_obj.item():.4e},",
-                f"{loss_conf_noobj.item():.4e}, {loss_class.item():.4e}"
+                f"{epoch + 1}.{batch_idx + 1}",
+                f"conf_obj: {loss_conf_obj.item():.4e}",
+                f"coord: {loss_coord.item():.4e}",
+                f"class: {loss_class.item():.4e}",
+                f"conf_noobj: {loss_conf_noobj.item():.4e}",
+                f"total: {loss.item():.4e}"
                 )
 
-        loss_epoch /= len(train_dataloader)
+        loss_epoch /= len(train_loader)
 
-        # if eval_dataloader:
-        #     mAP = evaluate()
-        print(f"{epoch + 1} {loss_epoch:.4e}")
-        # print(f"{epoch}.{batch_idx} {loss_epoch:.4e} {mAP:.4e}")
+        if eval_loader:
+            results = evaluate()
+            model.train()
+            num_gt, num_pred, tp, fp, fn, precision, recall, F1, mAP = results
+            print(
+                f"epoch: {epoch + 1} num_gt: {num_gt} num_pred: {num_pred}",
+                f"recall: {recall:.4e} F1: {F1.item():.4e} ",
+                f"mAP: {mAP.item():.4e}"
+                )
+
+    checkpoint = {
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optim.state_dict(),
+        'loss': loss,
+        'val': None,
+        # 'val': mAP if eval_loader else None,
+        }
+
+    if eval_loader:
+        print(checkpoint)  # append results
+    torch.save(checkpoint, os.path.join(save_dir, 'checkpoint.tar'))
 
 
 def main(config):
+    # saves to:
+    # YOLO_Redmond_et_al_2016/
+    # ├─ models/
+    # ├  ├── run/
+    # ├  ├   ├── checkpoint/
+    # ├  ├   ├── tensorboard/
+    # ├  ├   └── config.json
 
-    model = YOLO(fast=config['fast']).to(device=config['device'])
+    run = '{date:%Y-%m-%d_%H-%M-%S}'.format(date=datetime.datetime.now())
+    save_dir = os.path.join('..', 'models', run)
+    os.makedirs(save_dir)
+
+    with open(os.path.join(save_dir, 'config.json'), 'w') as outfile:
+        json.dump(config, outfile)
+
+    model = YOLO(fast=config['fast']).to(device=torch.device(config['device']))
     loss_fn = YOLOv1Loss()
     optimizer = torch.optim.SGD(
         model.parameters(),
@@ -85,7 +112,7 @@ def main(config):
     train_dataloader = DataLoader(
         train_dataset, batch_size=config['batch_size'], shuffle=True,
         num_workers=config['num_workers'], collate_fn=train_dataset.collate_fn,
-        pin_memory=config['pin_memory'], drop_last=config['drop_last'],
+        pin_memory=True, drop_last=config['drop_last'],
         prefetch_factor=config['prefetch_factor']
         )
 
@@ -96,41 +123,35 @@ def main(config):
             )
         eval_dataloader = DataLoader(
             eval_dataset, batch_size=config['batch_size'], shuffle=False,
-            num_workers=config['num_workers'], pin_memory=config['pin_memory'],
+            num_workers=config['num_workers'], pin_memory=True,
             collate_fn=eval_dataset.collate_fn, drop_last=False,
             prefetch_factor=config['prefetch_factor']
             )
 
     train(
-        model, loss_fn, optimizer, config['epochs'],
-        train_dataloader, eval_dataloader
+        model, loss_fn, optimizer, config['epochs'], train_dataloader,
+        eval_dataloader, torch.device(config['device']), save_dir
         )
 
 
 if __name__ == "__main__":
 
-    # TODO lr schedule: 10x10-3, 73x10e-2, 26x10e-3, 26x10e-4
     config = {
-        'root': '../data/VOC_10',
+        'root': os.path.join('..', 'data', 'VOC_100'),
         'fast': True,
         'augment': False,
-        # 'batch_size': 64,
         'batch_size': 16,
-        # 'shuffle': True,
         'shuffle': False,
         # 'num_workers': 2,
         'num_workers': 0,
-        'pin_memory': True,
         'drop_last': False,
         # 'prefetch_factor': 4,
         'prefetch_factor': 2,
         'evaluate': False,
         'optimizer': 'SGD',
-        'learning_rate': 1e-2,  # TODO try 5e-3
-        'epochs': 5000,
-        'device': torch.device(
-            'cuda:0' if torch.cuda.is_available() else 'cpu'
-            )
+        'learning_rate': 5e-4,
+        'epochs': 4000,
+        'device': 'cuda:0' if torch.cuda.is_available() else 'cpu'
         }
 
     main(config)

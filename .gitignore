@@ -1,3 +1,6 @@
+# Model checkpoints
+**/checkpoint.tar
+
 # Data
 **/Images/
 **/Annotations/
