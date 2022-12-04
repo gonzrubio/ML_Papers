@@ -61,13 +61,13 @@ def decode_predicted_labels(predicted_labels):
 
 
 def iou(bbox_pred, bbox_true):
-    """Compute the intersection over union.
+    """Compute the intersection over union of two bounding boxes.
 
     :param bbox_pred: Predicted bounding boxes (num_boxes, 4)
     :type bbox_pred: torch.Tensor
     :param bbox_true: True bounding boxes (num_boxes, 4)
     :type bbox_true: torch.Tensor
-    :return: The intersection over union for all pairs of boxes
+    :return: The row-wise intersection over union for bounding boxe pairs
     :rtype: torch.Tensor
 
     """
