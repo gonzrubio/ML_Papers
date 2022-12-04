@@ -87,8 +87,7 @@ class YOLOv1Loss(nn.Module):
         y_true_obj[:, 2:4] = torch.sqrt(y_true_obj[:, 2:4])
         y_pred_obj[:, 3:5] = torch.sqrt(y_pred_obj[:, 3:5])
 
-        lambda_coord = 5
-        loss_coord = lambda_coord * F.mse_loss(
+        loss_coord = self.lambda_coord * F.mse_loss(
             y_pred_obj[:, 1:5], y_true_obj[:, :4],
             reduction=self.reduction
             ) / N
@@ -102,8 +101,7 @@ class YOLOv1Loss(nn.Module):
         # [empty cells * B]
         y_pred_noobj = y_pred_noobj[:, :-self.C].reshape(-1, 5)[:, 0]
 
-        lambda_noobj = 0.5
-        loss_conf_noobj = lambda_noobj * F.mse_loss(
+        loss_conf_noobj = self.lambda_noobj * F.mse_loss(
             torch.zeros_like(y_pred_noobj), y_pred_noobj,
             reduction=self.reduction
             ) / N
