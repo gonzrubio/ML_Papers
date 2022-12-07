@@ -51,7 +51,9 @@ def evaluate(model, dataloader, device, training=False):
             img_idx_pred.extend([ii] * len(pred))
             img_idx_gt.extend([ii] * len(gt))
 
-    results = eval_metrics(pred_all, gt_all)
+    results = eval_metrics(
+        pred_all, gt_all, img_idx_pred, img_idx_gt, iou_threshold=0.5
+        )
 
     if training:
         return num_gt, num_pred, results
