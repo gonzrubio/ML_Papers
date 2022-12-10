@@ -40,18 +40,18 @@ def evaluate(
 
     model.to(device=device).eval()
     with torch.no_grad():
-        for ii, sample in enumerate(tqdm(dataloader, desc='Evaluating')):
+        for img_idx, sample in enumerate(tqdm(dataloader, desc='Evaluating')):
             image, gt, batch_idx = sample
 
             pred = model(image.to(device=device))
             pred = detect_objects(pred, score_threshold, nms_threshold)
             pred = torch.hstack(
-                (torch.tensor([ii] * pred.shape[0]).unsqueeze(1), pred)
+                (torch.tensor([img_idx] * pred.shape[0]).unsqueeze(1), pred)
                 )
             pred_all = torch.cat((pred, pred_all))
 
             gt = torch.hstack(
-                (torch.tensor([ii] * gt.shape[0]).unsqueeze(1), gt)
+                (torch.tensor([img_idx] * gt.shape[0]).unsqueeze(1), gt)
                 )
             gt_all = torch.cat((gt, gt_all))
 
@@ -106,6 +106,7 @@ def main(config):
     # plt.locator_params(axis='y', nbins=11)
 
     #     plt.savefig(str(cfg["eval_directory"].joinpath("precision_recall_%d.pdf"%class_indx)))
+
 
 if __name__ == "__main__":
 
