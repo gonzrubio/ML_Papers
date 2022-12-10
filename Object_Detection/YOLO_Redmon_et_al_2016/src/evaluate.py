@@ -18,47 +18,50 @@ from utils.metrics import eval_metrics
 from utils.bounding_boxes import detect_objects
 
 
-def evaluate(model, dataloader, device, training=False):
-    """Evaluate the model on a dataset and compute the performance metrics.
+def evaluate(
+        model, dataloader,
+        score_threshold, nms_threshold, iou_threshold,
+        training=False
+        ):
+    # """Evaluate the model on a dataset and compute the performance metrics.
 
-    :param model: The object detection model
-    :type model: torch.nn.Module
-    :param dataloader: The evaluation dataloader
-    :type dataloader: torch.utils.data.dataloader.DataLoader
-    :param device: Where to perform the computations
-    :type device: torch.device
-    :param training: If called from within the training loop, defaults to False
-    :type training: bool, optional
-    :return: The evaluation metrics
-    :rtype: tuple
+    # :param model: The object detection model
+    # :type model: torch.nn.Module
+    # :param dataloader: The evaluation dataloader
+    # :type dataloader: torch.utils.data.dataloader.DataLoader
+    # :param training: If called from within the training loop, defaults to False
+    # :type training: bool, optional
+    # :return: The evaluation metrics
+    # :rtype: tuple
 
-    """
-    num_pred, num_gt = 0, 0
+    # """
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     pred_all, gt_all = torch.tensor([]), torch.tensor([])
-    img_idx_pred, img_idx_gt = [], []
 
-    model.eval()
+    model.to(device=device).eval()
     with torch.no_grad():
         for ii, sample in enumerate(tqdm(dataloader, desc='Evaluating')):
             image, gt, batch_idx = sample
+
             pred = model(image.to(device=device))
-            pred = detect_objects(pred, prob_threshold=0.15, iou_threshold=0.9)
-
-            num_gt += len(gt)
-            num_pred += len(pred)
+            pred = detect_objects(pred, score_threshold, nms_threshold)
+            pred = torch.hstack(
+                (torch.tensor([ii] * pred.shape[0]).unsqueeze(1), pred)
+                )
             pred_all = torch.cat((pred, pred_all))
+
+            gt = torch.hstack(
+                (torch.tensor([ii] * gt.shape[0]).unsqueeze(1), gt)
+                )
             gt_all = torch.cat((gt, gt_all))
-            img_idx_pred.extend([ii] * len(pred))
-            img_idx_gt.extend([ii] * len(gt))
 
-    results = eval_metrics(
-        pred_all, gt_all, img_idx_pred, img_idx_gt, iou_threshold=0.5
-        )
+    results = eval_metrics(pred_all, gt_all, iou_threshold=iou_threshold)
 
+    model.train()
     if training:
-        return num_gt, num_pred, results
+        return pred_all.shape[0], gt_all.shape[0], results
 
-    return pred_all, gt_all, img_idx_pred, img_idx_gt, results
+    return pred_all, gt_all, results
 
 
 def main(config):
@@ -78,11 +81,12 @@ def main(config):
         os.path.join('..', 'models', config['model'], 'checkpoint.tar')
         )
 
-    model = YOLO(fast=config['fast']).to(device=torch.device(config['device']))
+    model = YOLO(fast=config['fast'])
     model.load_state_dict(checkpoint['model_state_dict'])
 
     results = evaluate(
-        model, dataloader, torch.device(config['device']), training=False
+        model, dataloader, config['score_threshold'], config['nms_threshold'],
+        config['iou_threshold'], training=False
         )
 
     # plot precision-recall (implement in utils/plots, legend AP and mAP)
@@ -107,12 +111,14 @@ if __name__ == "__main__":
 
     config = {
         'model': 'VOC_10',
+        'fast': True,
         'dataset': 'VOC_10',
         'split': 'train',
-        'fast': True,
+        'score_threshold': 0.15,
+        'nms_threshold': 0.9,
+        'iou_threshold': 0.5,
         'num_workers': 0,
         'prefetch_factor': 2,
-        'device': 'cuda:0' if torch.cuda.is_available() else 'cpu'
         }
 
     main(config)
