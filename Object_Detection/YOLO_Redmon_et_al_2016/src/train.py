@@ -62,7 +62,7 @@ def train(
         if eval_loader:
             results = evaluate()
             model.train()
-            num_gt, num_pred, tp, fp, fn, precision, recall, F1, mAP = results
+            num_pred, num_gt, tp, fp, fn, precision, recall, F1, mAP = results
             print(
                 f"epoch: {epoch + 1} num_gt: {num_gt} num_pred: {num_pred}",
                 f"recall: {recall:.4e} F1: {F1.item():.4e} ",
