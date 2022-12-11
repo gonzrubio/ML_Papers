@@ -52,7 +52,7 @@ def eval_metrics(pred, gt, iou_threshold=0.5, num_classes=20):
         # compute average precision
         precision_curve = torch.vstack((torch.tensor([1]), precision_curve))
         recall_curve = torch.vstack((torch.tensor([0]), recall_curve))
-        AP = torch.trapz(precision_curve, recall_curve, dim=0)
+        AP = torch.trapz(precision_curve, recall_curve, dim=0).item()
 
         results['scores'][class_idx] = scores_class[class_idx]
         results['precision_curve'][class_idx] = precision_curve
@@ -65,6 +65,10 @@ def eval_metrics(pred, gt, iou_threshold=0.5, num_classes=20):
         results['AP'][class_idx] = AP
 
     # compute mean for F1 and AP and make new results keys
+    n_seen_classes = sum([1 if i[1] > 0 else 0 for i in num_gt_class.items()])
+    results['mAP'] = sum(results['AP'].values()) / n_seen_classes
+    results['mF1'] = sum(results['F1'].values()) / n_seen_classes
+
     return results
 
 
