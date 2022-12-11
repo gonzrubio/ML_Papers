@@ -52,7 +52,7 @@ class YOLOv1Loss(nn.Module):
         self.B = B
         self.C = C
         self.reduction = reduction
-        self.lambda_coord, self.lamba_noobj = lambdas
+        self.lambda_coord, self.lambda_noobj = lambdas
 
     def forward(self, y_pred, y_true):
         """Apply the criterion to the predictions and ground truths.
