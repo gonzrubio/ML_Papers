@@ -12,15 +12,21 @@ from utils.bounding_boxes import iou
 
 
 def eval_metrics(pred, gt, iou_threshold=0.5, num_classes=20):
-    # pred_i = [prob, x_c, y_c, w, h, class_id]
-    # gt_i = [x_c, y_c, w, h, class_id]
-    # scores, precision_curve, recall_curve, F1_curve and threshold are
-    # dictionaries with the different voc class lables as the keys and the
-    # values are arrays with the sorted/cummulative values
-    # the keys of precision_optimal, recall_optimal, F1_optimal and AP are
-    # class labels and the values are the optimal value for that class, mF1
-    # and mAP are the mean across the classes
+    """Compute object detection metrics for a set of predictions and gt.
 
+    :param pred: A n x 7 tensor [image number, score, cx, cy, w, h, class]
+    :type pred: torch.Tensor
+    :param gt: A m x 6 tensor [image number, cx, cy, w, h, class]
+    :type gt: torch.Tensor
+    :param iou_threshold: Minimum iou to associate a prediction with a gt,
+    defaults to 0.5
+    :type iou_threshold: float, optional
+    :param num_classes: Number of object classes in the dataset, defaults to 20
+    :type num_classes: int, optional
+    :return: Object detection metrics per class for a set of predictions and gt
+    :rtype: dict
+
+    """
     results = {
         'scores': {}, 'precision_curve': {}, 'recall_curve': {},
         'F1_curve': {}, 'threshold': {}, 'precision': {}, 'recall': {},
@@ -64,7 +70,7 @@ def eval_metrics(pred, gt, iou_threshold=0.5, num_classes=20):
         results['F1'][class_idx] = F1_curve[max_idx]
         results['AP'][class_idx] = AP
 
-    # compute mean for F1 and AP and make new results keys
+    # compute mean for F1 and AP
     n_seen_classes = sum([1 if i[1] > 0 else 0 for i in num_gt_class.items()])
     results['mAP'] = sum(results['AP'].values()) / n_seen_classes
     results['mF1'] = sum(results['F1'].values()) / n_seen_classes
