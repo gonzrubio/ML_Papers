@@ -21,11 +21,10 @@ def eval_metrics(pred, gt, iou_threshold=0.5, num_classes=20):
     # class labels and the values are the optimal value for that class, mF1
     # and mAP are the mean across the classes
 
-    # TODO sgrvinod calculate_mAP
-
     results = {
-        'scores': {}, 'precision_curve': {}, 'recall_curve': {}, 'F1_curve': {}, 'threshold': {},
-        'precision': {}, 'recall': {}, 'F1': {}, 'AP': {}, 'mF1': None, 'mAP': None
+        'scores': {}, 'precision_curve': {}, 'recall_curve': {},
+        'F1_curve': {}, 'threshold': {}, 'precision': {}, 'recall': {},
+        'F1': {}, 'AP': {}, 'mF1': None, 'mAP': None
         }
 
     scores_class, tp_class, fp_class, num_gt_class = match_pred_with_gt(
@@ -42,12 +41,18 @@ def eval_metrics(pred, gt, iou_threshold=0.5, num_classes=20):
 
         # compute precision, recall and f1 score curves
         recall_curve = tp_class[class_idx] / num_gt_class[class_idx]
-        precision_curve = fp_class[class_idx] / (tp_class[class_idx] + fp_class[class_idx] + 1e-9)
-        F1_curve = 2 * precision_curve * recall_curve / (precision_curve + recall_curve + 1e-9)
+        precision_curve = fp_class[class_idx] / (
+            tp_class[class_idx] + fp_class[class_idx] + 1e-9
+            )
+        F1_curve = 2 * precision_curve * recall_curve / (
+            precision_curve + recall_curve + 1e-9
+            )
         max_idx = torch.argmax(F1_curve)
 
-        # TODO compute average precision
-        AP = None
+        # compute average precision
+        precision_curve = torch.vstack((torch.tensor([1]), precision_curve))
+        recall_curve = torch.vstack((torch.tensor([0]), recall_curve))
+        AP = torch.trapz(precision_curve, recall_curve, dim=0)
 
         results['scores'][class_idx] = scores_class[class_idx]
         results['precision_curve'][class_idx] = precision_curve
