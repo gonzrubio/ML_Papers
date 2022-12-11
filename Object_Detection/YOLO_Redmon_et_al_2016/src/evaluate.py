@@ -115,7 +115,7 @@ if __name__ == "__main__":
         'fast': True,
         'dataset': 'VOC_10',
         'split': 'train',
-        'score_threshold': 0.15,
+        'score_threshold': 0.05,
         'nms_threshold': 0.9,
         'iou_threshold': 0.5,
         'num_workers': 0,
