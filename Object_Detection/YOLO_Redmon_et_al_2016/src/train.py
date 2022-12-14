@@ -19,25 +19,26 @@ from loss import YOLOv1Loss
 from model import YOLO
 
 
-def train(
-    model, loss_fn, optim, epochs, train_loader, eval_loader, device, save_dir
-        ):
+def train(model,
+          loss_fn,
+          optim,
+          epochs,
+          train_loader,
+          eval_loader,
+          score_threshold,
+          nms_threshold,
+          iou_threshold,
+          device,
+          save_dir):
 
     torch.backends.cudnn.benchmark = True
-    # scaler = torch.cuda.amp.GradScaler()
 
     for epoch in range(epochs):
-
         loss_epoch = 0.
         for batch_idx, (image, ground_truth) in enumerate(train_loader):
 
-            # with torch.cuda.amp.autocast():
-            #     prediction = model(image.to(device))
-            #     loss = loss_fn(prediction, ground_truth.to(device))
-
             prediction = model(image.to(device))
             loss = loss_fn(prediction, ground_truth.to(device))
-
             loss_conf_obj, loss_coord, loss_class, loss_conf_noobj = loss
             loss = sum(loss)
             loss_epoch += loss.item()
@@ -45,9 +46,6 @@ def train(
             optim.zero_grad(set_to_none=True)
             loss.backward()
             optim.step()
-            # scaler.scale(loss).backward()
-            # scaler.step(optim)
-            # scaler.update()
             print(
                 f"{epoch + 1}.{batch_idx + 1}",
                 f"conf_obj: {loss_conf_obj.item():.4e}",
@@ -56,17 +54,22 @@ def train(
                 f"conf_noobj: {loss_conf_noobj.item():.4e}",
                 f"total: {loss.item():.4e}"
                 )
-
         loss_epoch /= len(train_loader)
 
         if eval_loader:
-            results = evaluate()
+            results = evaluate(model,
+                               eval_loader,
+                               score_threshold=score_threshold,
+                               nms_threshold=nms_threshold,
+                               iou_threshold=iou_threshold,
+                               training=True)
             model.train()
-            num_gt, num_pred, tp, fp, fn, precision, recall, F1, mAP = results
             print(
-                f"epoch: {epoch + 1} num_gt: {num_gt} num_pred: {num_pred}",
-                f"recall: {recall:.4e} F1: {F1.item():.4e} ",
-                f"mAP: {mAP.item():.4e}"
+                f" epoch: {epoch + 1}\n",
+                f"num_gt: {results['num_gt']}\n",
+                f"num_pred: {results['num_pred']}\n",
+                f"mF1: {results['mF1']:.4e}\n",
+                f"mAP: {results['mAP']:.4e}\n"
                 )
 
     checkpoint = {
@@ -74,12 +77,9 @@ def train(
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optim.state_dict(),
         'loss': loss,
-        'val': None,
-        # 'val': mAP if eval_loader else None,
+        'val': results['mAP'] if eval_loader else None,
         }
 
-    if eval_loader:
-        print(checkpoint)  # append results
     torch.save(checkpoint, os.path.join(save_dir, 'checkpoint.tar'))
 
 
@@ -119,7 +119,8 @@ def main(config):
     eval_dataloader = None
     if config['evaluate']:
         eval_dataset = VOCDetection(
-            root=config['root'], split='val', train=False, augment=False
+            # root=config['root'], split='val', train=False, augment=False
+            root=config['root'], split='train', train=False, augment=False
             )
         eval_dataloader = DataLoader(
             eval_dataset, batch_size=config['batch_size'], shuffle=False,
@@ -128,16 +129,23 @@ def main(config):
             prefetch_factor=config['prefetch_factor']
             )
 
-    train(
-        model, loss_fn, optimizer, config['epochs'], train_dataloader,
-        eval_dataloader, torch.device(config['device']), save_dir
-        )
+    train(model,
+          loss_fn,
+          optimizer,
+          config['epochs'],
+          train_dataloader,
+          eval_dataloader,
+          config['score_threshold'],
+          config['nms_threshold'],
+          config['iou_threshold'],
+          torch.device(config['device']),
+          save_dir)
 
 
 if __name__ == "__main__":
 
     config = {
-        'root': os.path.join('..', 'data', 'VOC_100'),
+        'root': os.path.join('..', 'data', 'VOC_10'),
         'fast': True,
         'augment': False,
         'batch_size': 16,
@@ -147,10 +155,13 @@ if __name__ == "__main__":
         'drop_last': False,
         # 'prefetch_factor': 4,
         'prefetch_factor': 2,
-        'evaluate': False,
         'optimizer': 'SGD',
-        'learning_rate': 5e-4,
+        'learning_rate': 1e-3,
         'epochs': 4000,
+        'evaluate': True,
+        'score_threshold': 0.05,
+        'nms_threshold': 0.9,
+        'iou_threshold': 0.5,
         'device': 'cuda:0' if torch.cuda.is_available() else 'cpu'
         }
 

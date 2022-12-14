@@ -29,12 +29,13 @@ def detect_objects(pred_labels, prob_threshold=0.2, iou_threshold=0.8):
     """
     pred_labels = decode_predicted_labels(pred_labels)
     pred_labels = pred_labels[pred_labels[:, 0] > prob_threshold]
+    pred_labels_copy = pred_labels.detach().clone()
     idx_keep = nms(
         boxes=yolo_to_voc_bbox(pred_labels[:, 1:5], (1, 1)),
         scores=pred_labels[:, 0], iou_threshold=iou_threshold
         )
 
-    return pred_labels[idx_keep, :]
+    return pred_labels_copy[idx_keep, :]
 
 
 def decode_predicted_labels(predicted_labels):
@@ -61,13 +62,13 @@ def decode_predicted_labels(predicted_labels):
 
 
 def iou(bbox_pred, bbox_true):
-    """Compute the intersection over union.
+    """Compute the intersection over union of two bounding boxes.
 
     :param bbox_pred: Predicted bounding boxes (num_boxes, 4)
     :type bbox_pred: torch.Tensor
     :param bbox_true: True bounding boxes (num_boxes, 4)
     :type bbox_true: torch.Tensor
-    :return: The intersection over union for all pairs of boxes
+    :return: The row-wise intersection over union for bounding boxe pairs
     :rtype: torch.Tensor
 
     """
