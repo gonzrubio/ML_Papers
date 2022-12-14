@@ -18,11 +18,12 @@ from utils.metrics import eval_metrics
 from utils.bounding_boxes import detect_objects
 
 
-def evaluate(
-        model, dataloader,
-        score_threshold, nms_threshold, iou_threshold,
-        training=False
-        ):
+def evaluate(model,
+             dataloader,
+             score_threshold,
+             nms_threshold,
+             iou_threshold,
+             training=False):
     # """Evaluate the model on a dataset and compute the performance metrics.
 
     # :param model: The object detection model
