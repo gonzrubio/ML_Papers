@@ -58,11 +58,14 @@ def evaluate(model,
 
     results = eval_metrics(pred_all, gt_all, iou_threshold=iou_threshold)
 
-    model.train()
     if training:
-        return pred_all.shape[0], gt_all.shape[0], results
+        results['num_pred'] = pred_all.shape[0]
+        results['num_gt'] = gt_all.shape[0]
+    else:
+        results['pred'] = pred_all.shape[0]
+        results['gt'] = gt_all.shape[0]
 
-    return pred_all, gt_all, results
+    return results
 
 
 def main(config):
