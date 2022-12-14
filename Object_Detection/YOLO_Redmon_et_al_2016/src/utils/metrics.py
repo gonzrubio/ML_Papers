@@ -64,10 +64,10 @@ def eval_metrics(pred, gt, iou_threshold=0.5, num_classes=20):
         results['precision_curve'][class_idx] = precision_curve
         results['recall_curve'][class_idx] = recall_curve
         results['F1_curve'][class_idx] = F1_curve
-        results['threshold'][class_idx] = scores_class[class_idx][max_idx]
-        results['precision'][class_idx] = precision_curve[max_idx]
-        results['recall'][class_idx] = recall_curve[max_idx]
-        results['F1'][class_idx] = F1_curve[max_idx]
+        results['threshold'][class_idx] = scores_class[class_idx][max_idx].item()
+        results['precision'][class_idx] = precision_curve[max_idx].item()
+        results['recall'][class_idx] = recall_curve[max_idx].item()
+        results['F1'][class_idx] = F1_curve[max_idx].item()
         results['AP'][class_idx] = AP
 
     # compute mean for F1 and AP
@@ -136,7 +136,7 @@ def match_pred_with_gt(predicted, ground_truth, iou_threshold, num_classes):
 
             if max_iou >= iou_threshold and not seen[img_number][assigned_gt]:
                 tp_class[class_idx][pred_idx] = 1
-                seen[assigned_gt] = True
+                seen[img_number][assigned_gt] = True
             else:
                 fp_class[class_idx][pred_idx] = 1
 
