@@ -57,7 +57,6 @@ def train(model,
         loss_epoch /= len(train_loader)
 
         if eval_loader:
-            # TODO fix here onwards
             results = evaluate(model,
                                eval_loader,
                                score_threshold=score_threshold,
@@ -65,11 +64,12 @@ def train(model,
                                iou_threshold=iou_threshold,
                                training=True)
             model.train()
-            num_pred, num_gt, tp, fp, fn, precision, recall, F1, mAP = results
             print(
-                f"epoch: {epoch + 1} num_gt: {num_gt} num_pred: {num_pred}",
-                f"recall: {recall:.4e} F1: {F1.item():.4e} ",
-                f"mAP: {mAP.item():.4e}"
+                f" epoch: {epoch + 1}\n",
+                f"num_gt: {results['num_gt']}\n",
+                f"num_pred: {results['num_pred']}\n",
+                f"mF1: {results['mF1']:.4e}\n",
+                f"mAP: {results['mAP']:.4e}\n"
                 )
 
     checkpoint = {
@@ -77,12 +77,9 @@ def train(model,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optim.state_dict(),
         'loss': loss,
-        'val': None,
-        # 'val': mAP if eval_loader else None,
+        'val': results['mAP'] if eval_loader else None,
         }
 
-    if eval_loader:
-        print(checkpoint)  # append results
     torch.save(checkpoint, os.path.join(save_dir, 'checkpoint.tar'))
 
 
