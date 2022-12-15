@@ -12,30 +12,40 @@ from torchvision.ops import nms
 
 
 def detect_objects(pred_labels, prob_threshold=0.2, iou_threshold=0.8):
-    """Convert the predicted tensor to a list of objects.
+    """Filter and nms the predicted tensor.
 
-    Performs non-maximum supression on the predicted labels above a probability
-    score and sorts the kept elements in decreasing order of score.
-
-    :param pred_labels: The predicted output tensor
+    :param pred_labels: The predicted (1, S, S, 30) output tensor
     :type pred_labels: torch.Tensor
     :param prob_threshold: The probability threshold
     :type prob_threshold: float
     :param iou_threshold: The iou threshold
     :type iou_threshold: float
-    :return: The filtered predicted tensor as a list of objects
+    :return: A (num_detections, 6) filtered and nms predicted tensor
     :rtype: torch.Tensor
 
     """
     pred_labels = decode_predicted_labels(pred_labels)
-    pred_labels = pred_labels[pred_labels[:, 0] > prob_threshold]
-    pred_labels_copy = pred_labels.detach().clone()
-    idx_keep = nms(
-        boxes=yolo_to_voc_bbox(pred_labels[:, 1:5], (1, 1)),
-        scores=pred_labels[:, 0], iou_threshold=iou_threshold
-        )
+    pred_labels = pred_labels.tolist()
+    pred_labels = [box for box in pred_labels if box[0] > prob_threshold]
+    pred_labels = sorted(pred_labels, key=lambda x: x[0], reverse=True)
 
-    return pred_labels_copy[idx_keep, :]
+    pred_labels_after_nms = []
+    while pred_labels:
+        chosen_box = pred_labels.pop(0)
+        pred_labels = [
+            box
+            for box in pred_labels
+            if box[-1] != chosen_box[-1]       # keep objects of diferent class
+            or iou(
+                torch.tensor(box[1:-1]),
+                torch.tensor(chosen_box[1:-1])
+            )
+            < iou_threshold           # keep objects that dont overlap too much
+        ]
+        pred_labels_after_nms.append(chosen_box)
+
+
+    return torch.tensor(pred_labels_after_nms)
 
 
 def decode_predicted_labels(predicted_labels):
