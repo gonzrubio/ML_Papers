@@ -37,24 +37,24 @@ def evaluate(model,
 
     # """
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    pred_all, gt_all = torch.tensor([]), torch.tensor([])
-
     model.to(device=device).eval()
+
+    pred_all, gt_all = torch.tensor([]), torch.tensor([])
     with torch.no_grad():
         for img_idx, sample in enumerate(tqdm(dataloader, desc='Evaluating')):
-            image, gt, batch_idx = sample
+            image, gt = sample[:2]
 
             pred = model(image.to(device=device))
             pred = detect_objects(pred, score_threshold, nms_threshold)
             pred = torch.hstack(
                 (torch.tensor([img_idx] * pred.shape[0]).unsqueeze(1), pred)
                 )
-            pred_all = torch.cat((pred, pred_all))
+            pred_all = torch.cat((pred_all, pred))
 
             gt = torch.hstack(
                 (torch.tensor([img_idx] * gt.shape[0]).unsqueeze(1), gt)
                 )
-            gt_all = torch.cat((gt, gt_all))
+            gt_all = torch.cat((gt_all, gt))
 
     results = eval_metrics(pred_all, gt_all, iou_threshold=iou_threshold)
 
