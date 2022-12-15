@@ -79,7 +79,6 @@ def train(model,
         'loss': loss,
         'val': results['mAP'] if eval_loader else None,
         }
-
     torch.save(checkpoint, os.path.join(save_dir, 'checkpoint.tar'))
 
 
@@ -100,7 +99,7 @@ def main(config):
         json.dump(config, outfile)
 
     model = YOLO(fast=config['fast']).to(device=torch.device(config['device']))
-    loss_fn = YOLOv1Loss()
+    loss_fn = YOLOv1Loss(lambdas=config['lambdas'])
     optimizer = torch.optim.SGD(
         model.parameters(),
         lr=config['learning_rate'], momentum=0.9, weight_decay=0.0005
@@ -110,7 +109,7 @@ def main(config):
         root=config['root'], split='train', train=True, augment=config['augment']
         )
     train_dataloader = DataLoader(
-        train_dataset, batch_size=config['batch_size'], shuffle=True,
+        train_dataset, batch_size=config['batch_size'], shuffle=config['shuffle'],
         num_workers=config['num_workers'], collate_fn=train_dataset.collate_fn,
         pin_memory=True, drop_last=config['drop_last'],
         prefetch_factor=config['prefetch_factor']
@@ -123,7 +122,7 @@ def main(config):
             root=config['root'], split='train', train=False, augment=False
             )
         eval_dataloader = DataLoader(
-            eval_dataset, batch_size=config['batch_size'], shuffle=False,
+            eval_dataset, batch_size=1, shuffle=False,
             num_workers=config['num_workers'], pin_memory=True,
             collate_fn=eval_dataset.collate_fn, drop_last=False,
             prefetch_factor=config['prefetch_factor']
@@ -145,22 +144,23 @@ def main(config):
 if __name__ == "__main__":
 
     config = {
-        'root': os.path.join('..', 'data', 'VOC_10'),
+        'root': os.path.join('..', 'data', 'VOC_100'),
         'fast': True,
         'augment': False,
         'batch_size': 16,
         'shuffle': False,
-        # 'num_workers': 2,
-        'num_workers': 0,
-        'drop_last': False,
-        # 'prefetch_factor': 4,
-        'prefetch_factor': 2,
+        'num_workers': 2,
+        # 'num_workers': 0,
+        'drop_last': True,
+        'prefetch_factor': 4,
+        # 'prefetch_factor': 2,
         'optimizer': 'SGD',
         'learning_rate': 1e-3,
-        'epochs': 4000,
-        'evaluate': True,
-        'score_threshold': 0.05,
-        'nms_threshold': 0.9,
+        'lambdas': [5, 0.5],
+        'epochs': 10000,
+        'evaluate': False,
+        'score_threshold': 0.4,
+        'nms_threshold': 0.5,
         'iou_threshold': 0.5,
         'device': 'cuda:0' if torch.cuda.is_available() else 'cpu'
         }
