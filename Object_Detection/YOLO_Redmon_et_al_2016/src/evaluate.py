@@ -46,15 +46,16 @@ def evaluate(model,
 
             pred = model(image.to(device=device))
             pred = detect_objects(pred, score_threshold, nms_threshold)
-            pred = torch.hstack(
-                (torch.tensor([img_idx] * pred.shape[0]).unsqueeze(1), pred)
-                )
-            pred_all = torch.cat((pred_all, pred))
+            if pred.shape[0] > 0:
+                pred = torch.hstack(
+                    (torch.tensor([img_idx] * pred.shape[0]).unsqueeze(1), pred)
+                    )
+                pred_all = torch.cat((pred_all, pred))
 
-            gt = torch.hstack(
-                (torch.tensor([img_idx] * gt.shape[0]).unsqueeze(1), gt)
-                )
-            gt_all = torch.cat((gt_all, gt))
+                gt = torch.hstack(
+                    (torch.tensor([img_idx] * gt.shape[0]).unsqueeze(1), gt)
+                    )
+                gt_all = torch.cat((gt_all, gt))
 
     results = eval_metrics(pred_all, gt_all, iou_threshold=iou_threshold)
 
@@ -119,8 +120,8 @@ if __name__ == "__main__":
         'fast': True,
         'dataset': 'VOC_10',
         'split': 'train',
-        'score_threshold': 0.05,
-        'nms_threshold': 0.9,
+        'score_threshold': 0.4,
+        'nms_threshold': 0.7,
         'iou_threshold': 0.5,
         'num_workers': 0,
         'prefetch_factor': 2,
