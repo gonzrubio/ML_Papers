@@ -24,6 +24,7 @@ def evaluate(model,
              nms_threshold,
              iou_threshold,
              training=False):
+    # TODO docstring
     # """Evaluate the model on a dataset and compute the performance metrics.
 
     # :param model: The object detection model
@@ -56,7 +57,7 @@ def evaluate(model,
                     (torch.tensor([img_idx] * gt.shape[0]).unsqueeze(1), gt)
                     )
                 gt_all = torch.cat((gt_all, gt))
-
+    # TODO fix bug in match_pred_with_gt
     results = eval_metrics(pred_all, gt_all, iou_threshold=iou_threshold)
 
     if training:
@@ -77,9 +78,10 @@ def main(config):
         )
 
     dataloader = DataLoader(
-        dataset, batch_size=1, shuffle=False, pin_memory=True, drop_last=False,
-        num_workers=config['num_workers'], collate_fn=dataset.collate_fn,
-        prefetch_factor=config['prefetch_factor']
+        dataset, batch_size=1, shuffle=False, pin_memory=True,
+        drop_last=config['drop_last'], num_workers=config['num_workers'],
+        prefetch_factor=config['prefetch_factor'],
+        collate_fn=dataset.collate_fn
         )
 
     checkpoint = torch.load(
@@ -94,6 +96,7 @@ def main(config):
         config['iou_threshold'], training=False
         )
 
+    # TODO plot and save in figures/model/
     # plot precision-recall (implement in utils/plots, legend AP and mAP)
     # plot threshold-F1 (legend, F1 and mF1)
     # plot all predictions
@@ -120,11 +123,12 @@ if __name__ == "__main__":
         'fast': True,
         'dataset': 'VOC_10',
         'split': 'train',
+        'num_workers': 0,
+        'prefetch_factor': 2,
+        'drop_last': True,
         'score_threshold': 0.4,
         'nms_threshold': 0.7,
         'iou_threshold': 0.5,
-        'num_workers': 0,
-        'prefetch_factor': 2,
         }
 
     main(config)
