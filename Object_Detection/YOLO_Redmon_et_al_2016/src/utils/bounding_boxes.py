@@ -8,10 +8,8 @@ Created on Fri Oct 28 13:22:59 2022
 
 import torch
 
-from torchvision.ops import nms
 
-
-def detect_objects(pred_labels, prob_threshold=0.2, iou_threshold=0.8):
+def detect_objects(pred_labels, prob_threshold=0.4, iou_threshold=0.5):
     """Filter and nms the predicted tensor.
 
     :param pred_labels: The predicted (1, S, S, 30) output tensor
