@@ -15,6 +15,56 @@ from utils.bounding_boxes import yolo_to_voc_bbox, decode_labels
 from utils.transforms import InvToTensorNormalize
 
 
+def plot_gt_vs_pred(dataloader,
+                    preds,
+                    id_class_map,
+                    id_color_map,
+                    size=(448, 448),
+                    fill=True,
+                    save_dir=None):
+    """Generate side-by-side comparisson of ground truth vs predictions.
+
+    Parameters
+    ----------
+    dataloader : torch.utils.data.dataloader.DataLoader
+        The dataloader containing the dataset images.
+    preds : torch.Tensor
+        A [num_preds, 7] tensor with the predicted detections.
+    id_class_map : dict
+        A map from class number to text ie. 0 -> 'aeroplane'.
+    id_color_map : dict
+        Amap from class number to color for the bounding boxes.
+    size : tuple, optional
+        The plot size. The default is (448, 448).
+    fill : bool, optional
+        Shade in the bounding boxes. The default is True.
+    save_dir : str, optional
+        If not None, the pdirectory where the generated plots are saved to.
+
+    Returns
+    -------
+    None.
+
+    """
+    for img_idx, (image, gt, batch_idx) in enumerate(dataloader):
+        plot_batch(
+                (image, gt, batch_idx),
+                id_class_map,
+                id_color_map,
+                size=size,
+                fill=fill,
+                save_dir=save_dir
+                )
+        pred = preds[preds[:, 0] == img_idx][:, 2:]
+        plot_batch(
+                (image, pred, torch.zeros(pred.shape[0])),
+                id_class_map,
+                id_color_map,
+                size=size,
+                fill=fill,
+                save_dir=save_dir
+                )
+
 def plot_batch(
         batch,
         id_class_map,
