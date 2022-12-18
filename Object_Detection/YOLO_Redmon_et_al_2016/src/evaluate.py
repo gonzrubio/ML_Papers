@@ -12,10 +12,12 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from data.make_voc_dataset import ID_CLASS_MAP, ID_COLOR_MAP
 from datasets import VOCDetection
 from model import YOLO
-from utils.metrics import eval_metrics
 from utils.bounding_boxes import detect_objects
+from utils.metrics import eval_metrics
+from utils.plots import plot_gt_vs_pred
 
 
 def evaluate(model,
@@ -64,14 +66,16 @@ def evaluate(model,
         results['num_pred'] = pred_all.shape[0]
         results['num_gt'] = gt_all.shape[0]
     else:
-        results['pred'] = pred_all.shape[0]
-        results['gt'] = gt_all.shape[0]
+        results['pred'] = pred_all
+        results['gt'] = gt_all
 
     return results
 
 
 def main(config):
-    """Evaluate the model and save the results."""
+    """Evaluate the model and save the results.
+    # TODO (add saving dir structure)
+    """
     dataset = VOCDetection(
         root=os.path.join('..', 'data', config['dataset']),
         split=config['split'], train=False, augment=False
@@ -95,11 +99,16 @@ def main(config):
         config['iou_threshold'], training=False
         )
 
-    # TODO plot and save in figures/model/
-    # plot precision-recall (implement in utils/plots, legend AP and mAP)
-    # plot threshold-F1 (legend, F1 and mF1)
-    # plot all predictions
-    # save plots in figures/ (write directory structure in docstring)
+    save_dir = os.path.join('..', 'figures', config['model'])
+    os.makedirs(save_dir)
+    plot_gt_vs_pred(
+        dataloader, results['pred'], ID_CLASS_MAP, ID_COLOR_MAP,
+        size=(448, 448), fill=True, save_dir=save_dir
+        )
+
+    # TODO plot precision-recall (implement in utils/plots, legend AP and mAP)
+
+    # TODO plot threshold-F1 (legend, F1 and mF1)
     # color_palette = sns.color_palette()
     # fig = plt.figure(figsize=(10,7))
     # plt.plot(recall_curve, precision_curve,color=color_palette[2], lw=3)
@@ -111,8 +120,7 @@ def main(config):
     # plt.ylim([.5,1.05])
     # plt.locator_params(axis='x', nbins=11)
     # plt.locator_params(axis='y', nbins=11)
-
-    #     plt.savefig(str(cfg["eval_directory"].joinpath("precision_recall_%d.pdf"%class_indx)))
+    # plt.savefig(str(cfg["eval_directory"].joinpath("precision_recall_%d.pdf"%class_indx)))
 
 
 if __name__ == "__main__":
