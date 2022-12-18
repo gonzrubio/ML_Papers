@@ -46,18 +46,18 @@ def eval_metrics(pred, gt, iou_threshold=0.5, num_classes=20):
         fp_class[class_idx] = torch.cumsum(fp_class[class_idx], dim=0)
 
         # compute precision, recall and f1 score curves
-        recall_curve = tp_class[class_idx] / num_gt_class[class_idx]
-        precision_curve = fp_class[class_idx] / (
+        precision_curve = tp_class[class_idx] / (
             tp_class[class_idx] + fp_class[class_idx] + 1e-9
             )
+        recall_curve = tp_class[class_idx] / num_gt_class[class_idx]
         F1_curve = 2 * precision_curve * recall_curve / (
             precision_curve + recall_curve + 1e-9
             )
         max_idx = torch.argmax(F1_curve)
 
         # compute average precision
-        precision_curve = torch.vstack((torch.tensor([1]), precision_curve))
-        recall_curve = torch.vstack((torch.tensor([0]), recall_curve))
+        precision_curve = torch.hstack((torch.tensor([1]), precision_curve))
+        recall_curve = torch.hstack((torch.tensor([0]), recall_curve))
         AP = torch.trapz(precision_curve, recall_curve, dim=0).item()
 
         results['scores'][class_idx] = scores_class[class_idx]
