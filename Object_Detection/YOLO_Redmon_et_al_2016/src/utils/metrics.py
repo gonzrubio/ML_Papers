@@ -106,37 +106,39 @@ def match_pred_with_gt(predicted, ground_truth, iou_threshold, num_classes):
         num_gt_class[class_idx] = gt_class.shape[0]
 
         # sort the predictions in decreasing order of probability score
-        pred_class = pred_class[torch.argsort(-pred_class[:, 1])]
+        sort_idx = torch.argsort(-pred_class[:, 1])
+        pred_class = pred_class[sort_idx, :]
 
         # pre-allocate space for the class specific table
-        scores_class[class_idx] = torch.zeros(pred_class.shape[0], 1)
-        tp_class[class_idx] = torch.zeros(pred_class.shape[0], 1)
-        fp_class[class_idx] = torch.zeros(pred_class.shape[0], 1)
+        scores_class[class_idx] = pred_class[:, 1]
+        tp_class[class_idx] = torch.zeros(pred_class.shape[0])
+        fp_class[class_idx] = torch.zeros(pred_class.shape[0])
+
+        # if there are no gts then all detections are false positives
+        if num_gt_class[class_idx] == 0:
+            fp_class[class_idx] += 1
+            continue
 
         # keep track of assigned gt per class and image number
         seen = {}
-        for image_number in set(gt_class[:, 0]):
+        for image_number in torch.unique(gt_class[:, 0]):
             num_objects = gt_class[gt_class[:, 0] == image_number].shape[0]
-            seen[image_number.item()] = [False] * num_objects
+            seen[image_number.item()] = [False for i in range(num_objects)]
 
         for pred_idx, pred in enumerate(pred_class):
-            scores_class[class_idx][pred_idx] = pred[1]
-
-            # if there are no gts then all detections are false positives
-            if num_gt_class[class_idx] == 0:
-                fp_class[class_idx][pred_idx] = 1
-                continue
-
-            # otherwise assign gts to the preds (from the same image)
             img_number = pred[0].item()
             gt = gt_class[gt_class[:, 0] == img_number]
-            overlaps = iou(pred[2:-1], gt[:, 1:-1])
-            assigned_gt = torch.argmax(overlaps).item()
-            max_iou = overlaps[assigned_gt]
 
-            if max_iou >= iou_threshold and not seen[img_number][assigned_gt]:
-                tp_class[class_idx][pred_idx] = 1
-                seen[img_number][assigned_gt] = True
+            if gt.shape[0] > 0:
+                overlaps = iou(pred[2:-1], gt[:, 1:-1])
+                assigned_gt = torch.argmax(overlaps).item()
+                max_iou = overlaps[assigned_gt]
+
+                if max_iou >= iou_threshold and not seen[img_number][assigned_gt]:
+                    tp_class[class_idx][pred_idx] = 1
+                    seen[img_number][assigned_gt] = True
+                else:
+                    fp_class[class_idx][pred_idx] = 1
             else:
                 fp_class[class_idx][pred_idx] = 1
 
