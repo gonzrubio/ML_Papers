@@ -99,7 +99,7 @@ def main(config):
         config['iou_threshold'], training=False
         )
 
-    save_dir = os.path.join('..', 'figures', config['model'])
+    save_dir = os.path.join('..', 'plots', config['model'])
     os.makedirs(save_dir)
     plot_gt_vs_pred(
         dataloader, results['pred'], ID_CLASS_MAP, ID_COLOR_MAP,
