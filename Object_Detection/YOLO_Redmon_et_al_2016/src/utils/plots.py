@@ -39,7 +39,7 @@ def plot_gt_vs_pred(dataloader,
     fill : bool, optional
         Shade in the bounding boxes. The default is True.
     save_dir : str, optional
-        If not None, the pdirectory where the generated plots are saved to.
+        If not None, the directory where the generated plots are saved to.
 
     Returns
     -------
@@ -53,7 +53,7 @@ def plot_gt_vs_pred(dataloader,
                 id_color_map,
                 size=size,
                 fill=fill,
-                save_dir=save_dir
+                save_dir=os.path.join(save_dir, f'{img_idx}_gt.png')
                 )
         pred = preds[preds[:, 0] == img_idx][:, 2:]
         plot_batch(
@@ -62,7 +62,7 @@ def plot_gt_vs_pred(dataloader,
                 id_color_map,
                 size=size,
                 fill=fill,
-                save_dir=save_dir
+                save_dir=os.path.join(save_dir, f'{img_idx}_pred.png')
                 )
 
 def plot_batch(
@@ -85,6 +85,7 @@ def plot_batch(
     :param fill: Shade in the bounding boxes, defaults to 'true'
     :type fill: str, optional
     :param save_dir: If specified, the directory to save the plotted images to,
+    it can be a directory or in the case of a single image the full file name.
     defaults to None
     :type save_dir: str, optional
 
@@ -126,5 +127,7 @@ def plot_batch(
         plt.axis("off")
         plt.show()
 
-        if save_dir:
+        if save_dir.endswith('.png'):
+            plt.imsave(save_dir, drawn_boxes)
+        else:
             plt.imsave(os.path.join(save_dir, f'{idx}.png'), drawn_boxes)
