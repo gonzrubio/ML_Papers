@@ -15,7 +15,25 @@ from utils.bounding_boxes import yolo_to_voc_bbox, decode_labels
 from utils.transforms import InvToTensorNormalize
 
 
-def plot_AP(results, id_class_map, id_color_map, save_dir):
+def plot_AP_F1(results, id_class_map, id_color_map, save_dir):
+    """Generate precision-recall and F1-condicence plots.
+
+    Parameters
+    ----------
+    results : dict
+        The model evaliuation results.
+    id_class_map : dict
+        A map from class number to text ie. 0 -> 'aeroplane'.
+    id_color_map : dict
+        Amap from class number to color for the bounding boxes.
+    save_dir : str, optional
+        If not None, the directory where the generated plots are saved to.
+
+    Returns
+    -------
+    None.
+
+    """
     legend = []
     for class_number in range(20):
         try:
@@ -32,7 +50,29 @@ def plot_AP(results, id_class_map, id_color_map, save_dir):
     plt.ylim(0, 1)
     plt.gca().set_prop_cycle(color=id_color_map.values())
     plt.legend(legend, loc='upper right', fontsize=6.5)
-    plt.savefig(save_dir,
+    plt.savefig(os.path.join(save_dir, 'precision_recall_AP.png'),
+                dpi=1200,
+                bbox_inches='tight',
+                pad_inches=0)
+    plt.show()
+
+    legend = []
+    for class_number in range(20):
+        try:
+            x = results['scores'][class_number]
+            y = results['F1_curve'][class_number]
+            plt.plot(x, y)
+            legend.append(f'{id_class_map[class_number]}: ' \
+                          f'{results["F1"][class_number]: .4f} F1 score')
+        except:
+            continue
+    plt.xlabel('confidence')
+    plt.ylabel('F1')
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
+    plt.gca().set_prop_cycle(color=id_color_map.values())
+    plt.legend(legend, loc='upper right', fontsize=6.5)
+    plt.savefig(os.path.join(save_dir, 'F1_confidence.png'),
                 dpi=1200,
                 bbox_inches='tight',
                 pad_inches=0)
