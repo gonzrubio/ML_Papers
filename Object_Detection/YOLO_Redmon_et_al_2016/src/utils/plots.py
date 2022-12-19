@@ -51,7 +51,7 @@ def plot_AP_F1(results, id_class_map, id_color_map, save_dir):
     plt.gca().set_prop_cycle(color=id_color_map.values())
     plt.legend(legend, loc='upper right', fontsize=6.5)
     plt.savefig(os.path.join(save_dir, 'precision_recall_AP.png'),
-                dpi=1200,
+                dpi=200,
                 bbox_inches='tight',
                 pad_inches=0)
     plt.show()
@@ -73,7 +73,7 @@ def plot_AP_F1(results, id_class_map, id_color_map, save_dir):
     plt.gca().set_prop_cycle(color=id_color_map.values())
     plt.legend(legend, loc='upper right', fontsize=6.5)
     plt.savefig(os.path.join(save_dir, 'F1_confidence.png'),
-                dpi=1200,
+                dpi=200,
                 bbox_inches='tight',
                 pad_inches=0)
     plt.show()
