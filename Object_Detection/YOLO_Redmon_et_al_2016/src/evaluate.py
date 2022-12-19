@@ -17,7 +17,7 @@ from datasets import VOCDetection
 from model import YOLO
 from utils.bounding_boxes import detect_objects
 from utils.metrics import eval_metrics
-from utils.plots import plot_gt_vs_pred
+from utils.plots import plot_gt_vs_pred, plot_AP
 
 
 def evaluate(model,
@@ -99,14 +99,22 @@ def main(config):
         config['iou_threshold'], training=False
         )
 
+    # save_dir = os.path.join('..', 'plots', config['model'], 'pred_vs_gt')
     save_dir = os.path.join('..', 'plots', config['model'])
-    os.makedirs(save_dir)
+    save_dir_pred_gt = os.path.join(save_dir, 'pred_vs_gt')
+    os.makedirs(save_dir_pred_gt)
     plot_gt_vs_pred(
         dataloader, results['pred'], ID_CLASS_MAP, ID_COLOR_MAP,
-        size=(448, 448), fill=True, save_dir=save_dir
+        size=(896, 896), fill=True, save_dir=save_dir_pred_gt
         )
 
-    # TODO plot precision-recall (implement in utils/plots, legend AP and mAP)
+    save_dir_AP = os.path.join(save_dir, 'precision_recall_AP.png')
+    plot_AP(results, ID_CLASS_MAP, ID_COLOR_MAP, save_dir=save_dir_AP)
+    
+    # legend F1, mF1, need to sort by threshold
+    # for class_number in range(20):
+    #     results['F1_curve'][class_number]
+    #     results['threshold'][class_number]
 
     # TODO plot threshold-F1 (legend, F1 and mF1)
     # color_palette = sns.color_palette()

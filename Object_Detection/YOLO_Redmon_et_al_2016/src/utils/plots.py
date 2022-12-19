@@ -15,6 +15,30 @@ from utils.bounding_boxes import yolo_to_voc_bbox, decode_labels
 from utils.transforms import InvToTensorNormalize
 
 
+def plot_AP(results, id_class_map, id_color_map, save_dir):
+    legend = []
+    for class_number in range(20):
+        try:
+            x = results['recall_curve'][class_number]
+            y = results['precision_curve'][class_number]
+            plt.plot(x, y)
+            legend.append(f'{id_class_map[class_number]}: ' \
+                          f'{results["AP"][class_number]: .4f} AP')
+        except:
+            continue
+    plt.xlabel('recall')
+    plt.ylabel('precision')
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
+    plt.gca().set_prop_cycle(color=id_color_map.values())
+    plt.legend(legend, loc='upper right', fontsize=6.5)
+    plt.savefig(save_dir,
+                dpi=1200,
+                bbox_inches='tight',
+                pad_inches=0)
+    plt.show()
+
+
 def plot_gt_vs_pred(dataloader,
                     preds,
                     id_class_map,
@@ -128,6 +152,6 @@ def plot_batch(
         plt.show()
 
         if save_dir.endswith('.png'):
-            plt.imsave(save_dir, drawn_boxes)
+            plt.imsave(save_dir, drawn_boxes, dpi=1200)
         else:
-            plt.imsave(os.path.join(save_dir, f'{idx}.png'), drawn_boxes)
+            plt.imsave(os.path.join(save_dir, f'{idx}.png'), drawn_boxes, dpi=1200)
