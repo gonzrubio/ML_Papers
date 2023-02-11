@@ -1,0 +1,1 @@
+{"root": "..\\data\\VOC", "fast": true, "augment": false, "batch_size": 16, "shuffle": true, "num_workers": 0, "drop_last": true, "prefetch_factor": 2, "optimizer": "SGD", "learning_rate": 0.0001, "lambdas": [5, 0.5], "epochs": 1000, "evaluate": true, "score_threshold": 0.4, "nms_threshold": 0.5, "iou_threshold": 0.5, "device": "cuda:0"}

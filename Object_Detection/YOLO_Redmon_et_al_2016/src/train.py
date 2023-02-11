@@ -118,8 +118,8 @@ def main(config):
     eval_dataloader = None
     if config['evaluate']:
         eval_dataset = VOCDetection(
-            # root=config['root'], split='val', train=False, augment=False
-            root=config['root'], split='train', train=False, augment=False
+            root=config['root'], split='val', train=False, augment=False
+            # root=config['root'], split='train', train=False, augment=False
             )
         eval_dataloader = DataLoader(
             eval_dataset, batch_size=1, shuffle=False,
@@ -144,21 +144,21 @@ def main(config):
 if __name__ == "__main__":
 
     config = {
-        'root': os.path.join('..', 'data', 'VOC_100'),
+        'root': os.path.join('..', 'data', 'VOC'),
         'fast': True,
         'augment': False,
         'batch_size': 16,
-        'shuffle': False,
+        'shuffle': True,
         # 'num_workers': 2,
         'num_workers': 0,
         'drop_last': True,
         # 'prefetch_factor': 4,
         'prefetch_factor': 2,
         'optimizer': 'SGD',
-        'learning_rate': 1e-3,
+        'learning_rate': 1e-4,
         'lambdas': [5, 0.5],
-        'epochs': 10000,
-        'evaluate': False,
+        'epochs': 1000,
+        'evaluate': True,
         'score_threshold': 0.4,
         'nms_threshold': 0.5,
         'iou_threshold': 0.5,
