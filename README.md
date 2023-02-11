@@ -1,10 +1,10 @@
 # Overview
 
-Welcome to my GitHub page! Here, I share my attempts at implementing from scratch and reproducing the results of some of the research papers that I've read, documenting the process and sharing it with the community. Please note that since this is not an official implementation, there are likely bugs and inaccuracies. However, I hope that you find this page to be a helpful learning resource.
+Here, I share my attempts at implementing from scratch and reproducing the results of some of the research papers that I've read, documenting the process and sharing it with the community. Please note that since this is not an official implementation, there are likely bugs and inaccuracies. However, I hope that you find this repository to be a helpful learning resource.
 
 ## Content
 
-You will find various projects on this page, each one focusing on reproducing the results of a specific research paper. Each project includes the original paper, highlighted for a quicker read, the code used to implement the paper and in future projects, you'll find figures, metrics and trained weights for a more complete and better understanding of the papers.
+You will find various projects, each one focusing on reproducing the results of a specific research paper. Each project includes the original paper, highlighted for a quicker read, the code used to implement the paper and in future projects, you'll find figures, metrics and trained weights for a more complete and better understanding of the papers.
 
 ## Usage
 
