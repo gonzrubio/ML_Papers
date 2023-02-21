@@ -1,6 +1,6 @@
 # Overview
 
-Here, I share my attempts at implementing from scratch and reproducing the results of some of the research papers that I've read, documenting the process and sharing it with the community. Please note that since this is not an official implementation, there are likely bugs and inaccuracies. However, I hope that you find this repository to be a helpful learning resource.
+In this repository, I share my attempts at implementing from scratch and reproducing the results of some of the research papers that I've read, documenting the process and sharing it with the community. Please note that, while there are likely bugs and inaccuracies, I hope that you find this repository to be a helpful learning resource.
 
 ## Content
 
