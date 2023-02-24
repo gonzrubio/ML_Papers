@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
+"""CLIPstyler: Image Style Transfer with a Single Text Condition
+
+Paper: https://arxiv.org/abs/2112.00374
+
 Created on Wed Feb 22 21:17:47 2023
 
 @author: gonzalo
@@ -8,10 +11,18 @@ Created on Wed Feb 22 21:17:47 2023
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class Resblock(nn.Module):
+    """The residual block.
+
+    Args:
+        in_channels (int): Number of channels in the input tensor.
+        out_channels (int): Number of channels in the output tensor.
+
+    Returns:
+        tensor: Output tensor of the residual block.
+    """
     def __init__(self, in_channels, out_channels):
         super(Resblock, self).__init__()
 
@@ -30,6 +41,14 @@ class Resblock(nn.Module):
 
 
 class StyleNet(nn.Module):
+    """The lightweight U-net stylizing network.
+
+    Args:
+        x (tensor): The content image [1, 3, H, W].
+
+    Returns:
+        tensor: The style transfer output [1, 3, H, W].
+    """
     def __init__(self):
         super(StyleNet, self).__init__()
 
@@ -57,6 +76,7 @@ class StyleNet(nn.Module):
 
         # Decoder blocks
         self.decoder_blocks = nn.ModuleList()
+        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear')
 
         for i in range(self.scales - 1, 0, -1):
             in_ch = rb_channels * (2 ** i) + rb_channels * (2 ** (i - 1))
@@ -87,9 +107,7 @@ class StyleNet(nn.Module):
 
         # Decoder
         for i in range(self.scales - 1, 0, -1):
-            x = F.interpolate(
-                x, scale_factor=2, mode='bilinear', align_corners=False
-                )
+            x = self.upsample(x)
             x = torch.cat([x, skip_connections[i]], dim=1)
             x = self.decoder_blocks[self.scales - i - 1](x)
 
@@ -97,8 +115,7 @@ class StyleNet(nn.Module):
 
 
 if __name__ == '__main__':
-    # TODO compare authors stylenet.py file
-    # TODO add dosctrings
+
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     model = StyleNet().to(device)
