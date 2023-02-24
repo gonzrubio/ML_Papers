@@ -8,6 +8,7 @@ Created on Wed Feb 22 21:17:47 2023
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class Resblock(nn.Module):
@@ -35,17 +36,24 @@ class StyleNet(nn.Module):
         rb_channels = 16
         self.scales = 4
 
+        # Embed input
         self.rgb2rb = nn.Conv2d(
             in_channels=3, out_channels=rb_channels, kernel_size=1
             )
 
         # encoder blocks
         self.encoder_blocks = nn.ModuleList()
+        self.strided_convs = nn.ModuleList()
 
         for i in range(self.scales):
             in_ch = rb_channels if i == 0 else rb_channels * (2 ** (i - 1))
             out_ch = rb_channels * (2 ** i)
             self.encoder_blocks.append(Resblock(in_ch, out_ch))
+            if i < self.scales - 1:
+                self.strided_convs.append(
+                    nn.Conv2d(in_channels=out_ch, out_channels=out_ch,
+                              kernel_size=4, stride=2, padding=1)
+                    )
 
         # Decoder blocks
         self.decoder_blocks = nn.ModuleList()
@@ -55,6 +63,7 @@ class StyleNet(nn.Module):
             out_ch = rb_channels * (2 ** (i - 1))
             self.decoder_blocks.append(Resblock(in_ch, out_ch))
 
+        # Prediction head
         self.head = nn.Sequential(
             Resblock(out_ch + rb_channels, rb_channels),
             nn.Conv2d(
@@ -63,9 +72,8 @@ class StyleNet(nn.Module):
                 kernel_size=1),
             nn.Sigmoid()            
             )
-            
+
     def forward(self, x):
-        
 
         x = self.rgb2rb(x)
         skip_connections = [x]
@@ -75,16 +83,17 @@ class StyleNet(nn.Module):
             x = self.encoder_blocks[i](x)
             if i < self.scales - 1:
                 skip_connections.append(x)
-                # TODO stridded conv filter 4 step 3 pad 1
+                x = self.strided_convs[i](x)
 
         # Decoder
         for i in range(self.scales - 1, 0, -1):
-            # x = nn.functional.interpolate(x, scale_factor=2, mode='nearest')
-            # TODO bilinear upsample
-            x = torch.cat([x, skip_connections[i]], dim=0)
+            x = F.interpolate(
+                x, scale_factor=2, mode='bilinear', align_corners=False
+                )
+            x = torch.cat([x, skip_connections[i]], dim=1)
             x = self.decoder_blocks[self.scales - i - 1](x)
 
-        return self.head(torch.cat([x, skip_connections[i]], dim=0))
+        return self.head(torch.cat([x, skip_connections[0]], dim=1))
 
 
 if __name__ == '__main__':
@@ -96,7 +105,7 @@ if __name__ == '__main__':
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Number of parameters for StyleNet: {total_params:,}")
 
-    x_in = torch.randn((3, 512, 512), device=device, dtype=torch.float32)
+    x_in = torch.randn((1, 3, 512, 512), device=device, dtype=torch.float32)
     x_out = model(x_in)
 
     assert x_out.shape == x_in.shape
