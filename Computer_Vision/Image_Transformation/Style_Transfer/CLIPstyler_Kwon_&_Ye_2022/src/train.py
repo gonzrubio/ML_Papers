@@ -23,16 +23,37 @@ Created on Wed Feb 22 21:24:31 2023
 # content_image = preprocess("path/to/content/image.jpg")
 
 
+def get_features(image, model, layers=None):
 
-# TODO vgg from torchvision/ (why use those specific layers?)
+    if layers is None:
+        layers = {'0': 'conv1_1',  
+                  '5': 'conv2_1',  
+                  '10': 'conv3_1', 
+                  '19': 'conv4_1', 
+                  '21': 'conv4_2', 
+                  '28': 'conv5_1',
+                  '31': 'conv5_2'
+                 }  
+    features = {}
+    x = image
+    for name, layer in model._modules.items():
+        x = layer(x)   
+        if name in layers:
+            features[layers[name]] = x
+    
+    return features
+
+for name, module in model.named_modules():
+    print(name, type(module))
+# TODO vgg from torchvision
 # TODO ask chatgpt if I can use another SOTA convnet or transformer
 
-from torchvision.models import ViT_H_14_Weights, vit_h_14
+from torchvision.models import vgg19_bn, VGG19_BN_Weights
 import torch.nn.functional as F
 with torch.no_grad():
-    weights = ViT_H_14_Weights.DEFAULT
+    weights = VGG19_BN_Weights.DEFAULT
     preprocess = weights.transforms()
-    model = vit_h_14(weights=weights)
+    model = vgg19_bn(weights=weights)
     model.eval()
     img_transformed = preprocess(img)
     content_image = preprocess("path/to/content/image.jpg")
