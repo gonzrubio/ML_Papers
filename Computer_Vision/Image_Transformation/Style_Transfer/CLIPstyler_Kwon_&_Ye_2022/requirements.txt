@@ -1,2 +1,6 @@
 torch==1.13.1+cu117
 torchvision==0.14.1
+ftfy
+regex
+tqdm
+git+https://github.com/openai/CLIP.git
