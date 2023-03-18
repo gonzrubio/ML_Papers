@@ -15,6 +15,7 @@ from PIL import Image
 from tqdm import tqdm
 
 import torch
+import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.transforms as T
 from torch.optim.lr_scheduler import StepLR
@@ -32,7 +33,7 @@ def vgg_feature_maps(image, model):
     layers = {'21': 'conv4_2', '31': 'conv5_2'}
     features = {}
     x = image
-    x = x.unsqueeze(0)
+    # x = x.unsqueeze(0)
     for name, layer in model._modules.items():
         x = layer(x)   
         if name in layers:
@@ -47,22 +48,23 @@ def stylize(img_c, txt, models, transforms, device):
     vgg = models['vgg'].to(device)
     stylenet = StyleNet().to(device)
 
-    # Prepare the inputs and get features
+    # prepare the inputs for StyleNet, VGG and CLIP
     token_t_sty = torch.cat([openaiclip.tokenize(i) for i in txt]).to(device)
     token_src = openaiclip.tokenize('Photo').to(device)
-    I_clip = transforms['clip'](img_c).to(device)   # img_c as tensor and clip transforms
-    I_vgg = transforms['vgg'](img_c).to(device)     # img_c as tensor and vgg transforms
-    I_c = transforms['stylenet'](img_c).to(device)  # img_c as tensor and stylenet transforms
+    I_c = transforms['stylenet'](img_c).to(device)  # content image as tensor with StyleNet transforms
+    I_clip = transforms['clip'](I_c).to(device)     # " " " " " CLIP transforms
+    I_vgg = transforms['vgg'](I_c).to(device)       # " " " " " vgg transforms
 
+    # get the CLIP and VGG feature maps (embeddings)
     with torch.no_grad():
         t_sty_features = clip.encode_text(token_t_sty).mean(dim=0, keepdim=True)
         t_src_features = clip.encode_text(token_src).mean(dim=0, keepdim=True)
-        I_c_features = clip.encode_image(I_clip.unsqueeze(0))
-        vgg_features = vgg_feature_maps(I_vgg, vgg)
+        I_c_features = clip.encode_image(I_clip)     # clip feature maps from content image
+        vgg_features = vgg_feature_maps(I_vgg, vgg)  # vgg " " " " "
 
     # optimization parameters
     optimizer = optim.Adam(stylenet.parameters(), lr=5e-4)
-    scheduler = StepLR(optimizer, step_size=100, gamma=0.5)
+    # scheduler = StepLR(optimizer, step_size=100, gamma=0.5)
 
     lambda_d = 5e2
     lambda_p = 9e3
@@ -71,8 +73,12 @@ def stylize(img_c, txt, models, transforms, device):
 
     for i in range(200):
 
+        # TODO reproduce their result and add losses one by one
         # directional CLIP loss
         I_cs = stylenet(I_c)
+        # TODO contrast enhancements
+        plt.imshow(I_cs.squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
+        plt.show()
         I_cs = transforms['clip'](T.ToPILImage()(I_cs.squeeze(0))).to(device)
         I_cs_features = clip.encode_image(I_cs.unsqueeze(0))
 
@@ -93,10 +99,14 @@ def stylize(img_c, txt, models, transforms, device):
         # loss_total = loss_dir + loss_patch + loss_content + loss_tv
 
         # Print the losses
-        print(f"Iteration {i}: total loss = {total_loss.item()}, "
-              f"dir loss = {loss_dir.item()}, patch loss = {loss_patch.item()}, "
-              f"content loss = {loss_content.item()}, TV loss = {loss_tv.item()}")
-
+        # print(f"Iteration {i}: total loss = {total_loss.item()}, "
+        #       f"dir loss = {loss_dir.item()}, patch loss = {loss_patch.item()}, "
+        #       f"content loss = {loss_content.item()}, TV loss = {loss_tv.item()}")
+        print(f'loss_dir: {loss_dir.item():.4f}')
+        optimizer.zero_grad(set_to_none=True)
+        loss_dir.backward()
+        optimizer.step()
+        # scheduler.step()
     return img_cs
 
 
@@ -109,7 +119,7 @@ def get_models_transforms():
 
     clip, preprocess_clip = openaiclip.load('ViT-B/32', jit=False)
     clip.eval()
-    
+
     models = {'vgg': vgg, 'clip': clip}
 
     transforms = {
@@ -118,7 +128,11 @@ def get_models_transforms():
             T.ToTensor(),
             lambda x: torch.unsqueeze(x, 0)
             ]),
-        'clip': preprocess_clip,
+        'clip': T.Compose([
+            lambda x: F.interpolate(x, size=224, mode='bicubic'),
+            T.Normalize(mean=[0.48145466, 0.4578275, 0.40821073],
+                        std=[0.26862954, 0.26130258, 0.27577711])
+            ]),
         'vgg': preprocess_vgg,
         }
 
@@ -150,7 +164,7 @@ def main(cfg):
 if __name__ == '__main__':
     # TODO run end-to-end on a single image-text pair
     # TODO Look at official code
-    # TODO more text_conditions/ (x7) and plots
+    # TODO your text_conditions/ (x7) and plots (add mexican gods to text)
     # TODO read args and set defaults
     cfg= {
         'content': os.path.join(os.getcwd(), '..', 'data', 'content_images'),
