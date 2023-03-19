@@ -21,11 +21,13 @@ import torchvision.transforms as T
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Dataset, DataLoader
 from torchvision.models import vgg19, VGG19_Weights
+from torchvision.transforms.functional import adjust_contrast
 
 import clip as openaiclip
 import matplotlib.pyplot as plt
 
 from StyleNet import StyleNet
+from templates import compose_text_with_templates
 
 
 def vgg_feature_maps(image, model):
@@ -44,47 +46,49 @@ def vgg_feature_maps(image, model):
 
 def stylize(img_c, txt, models, transforms, device):
 
+    plt.imshow(adjust_contrast(img_c, 1.5))
+    plt.show()
+
     clip = models['clip'].to(device)
     vgg = models['vgg'].to(device)
     stylenet = StyleNet().to(device)
 
     # prepare the inputs for StyleNet, VGG and CLIP
-    token_t_sty = torch.cat([openaiclip.tokenize(i) for i in txt]).to(device)
-    token_src = openaiclip.tokenize('Photo').to(device)
+    txt = compose_text_with_templates(txt)
+    token_t_sty = openaiclip.tokenize(txt).to(device)
+    # token_t_sty = torch.cat([openaiclip.tokenize(i) for i in txt]).to(device)
+    txt = compose_text_with_templates('a Photo')
+    token_src = openaiclip.tokenize(txt).to(device)
     I_c = transforms['stylenet'](img_c).to(device)  # content image as tensor with StyleNet transforms
     I_clip = transforms['clip'](I_c).to(device)     # " " " " " CLIP transforms
     I_vgg = transforms['vgg'](I_c).to(device)       # " " " " " vgg transforms
 
     # get the CLIP and VGG feature maps (embeddings)
+    # TODO mean and norm inputs but why?
     with torch.no_grad():
         t_sty_features = clip.encode_text(token_t_sty).mean(dim=0, keepdim=True)
         t_src_features = clip.encode_text(token_src).mean(dim=0, keepdim=True)
+        delta_T = t_sty_features - t_src_features    # direction of semantic text features
         I_c_features = clip.encode_image(I_clip)     # clip feature maps from content image
         vgg_features = vgg_feature_maps(I_vgg, vgg)  # vgg " " " " "
 
     # optimization parameters
     optimizer = optim.Adam(stylenet.parameters(), lr=5e-4)
-    # scheduler = StepLR(optimizer, step_size=100, gamma=0.5)
+    scheduler = StepLR(optimizer, step_size=100, gamma=0.5)
+    lambdas = {'tv': 2e-3, 'patch': 9000, 'dir': 500, 'cont': 150}
 
-    lambda_d = 5e2
-    lambda_p = 9e3
-    lamda_c = 150
-    lamda_tv = 2e-3
 
     for i in range(200):
 
         # TODO reproduce their result and add losses one by one
         # directional CLIP loss
-        I_cs = stylenet(I_c)
-        # TODO contrast enhancements
-        plt.imshow(I_cs.squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
+        I_cs = stylenet(I_c)  # stylized content image
+        plt.imshow(adjust_contrast(I_cs, 1.5).squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
         plt.show()
-        I_cs = transforms['clip'](T.ToPILImage()(I_cs.squeeze(0))).to(device)
-        I_cs_features = clip.encode_image(I_cs.unsqueeze(0))
 
+        I_cs_features = clip.encode_image(transforms['clip'](I_cs))
         delta_I = I_cs_features - I_c_features
-        delta_T = t_sty_features - t_src_features
-        loss_dir = lambda_d * (1 - torch.cosine_similarity(delta_I, delta_T))
+        loss_dir = lambdas['dir'] * (1 - torch.cosine_similarity(delta_I, delta_T))
 
         # PatchCLIP loss
         # randomly crop n=64 patches and apply random geometrical (perspective sclae=0.5) augmentations and calculate clip loss
@@ -102,11 +106,12 @@ def stylize(img_c, txt, models, transforms, device):
         # print(f"Iteration {i}: total loss = {total_loss.item()}, "
         #       f"dir loss = {loss_dir.item()}, patch loss = {loss_patch.item()}, "
         #       f"content loss = {loss_content.item()}, TV loss = {loss_tv.item()}")
-        print(f'loss_dir: {loss_dir.item():.4f}')
+        print(f'Iteration {i}, loss_dir: {loss_dir.item():.4f}')
         optimizer.zero_grad(set_to_none=True)
         loss_dir.backward()
         optimizer.step()
-        # scheduler.step()
+        scheduler.step()
+
     return img_cs
 
 
@@ -141,7 +146,7 @@ def get_models_transforms():
 
 def get_conditions(src):
     with open(src, 'r') as file:
-        conditions = [line.strip().split(',') for line in file.readlines()]
+        conditions = [line.strip() for line in file.readlines()]
     return conditions
 
 
@@ -155,7 +160,6 @@ def main(cfg):
         img_c = Image.open(os.path.join(cfg['content'], img_c))
         for txt in tqdm(conditions, leave=False):
             img_cs = stylize(img_c, txt, models, transforms, device)
-            # contrast enhancements
             # save img_c_txt.png
             # append to collage list
     # plot all images as table (or two depending on size, fix num images per grid) like fig 1 (highest res possible output/)
