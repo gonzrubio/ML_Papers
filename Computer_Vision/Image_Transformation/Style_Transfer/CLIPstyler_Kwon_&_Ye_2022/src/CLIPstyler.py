@@ -53,42 +53,55 @@ def stylize(img_c, txt, models, transforms, device):
     vgg = models['vgg'].to(device)
     stylenet = StyleNet().to(device)
 
-    # prepare the inputs for StyleNet, VGG and CLIP
-    txt = compose_text_with_templates(txt)
-    token_t_sty = openaiclip.tokenize(txt).to(device)
-    # token_t_sty = torch.cat([openaiclip.tokenize(i) for i in txt]).to(device)
-    txt = compose_text_with_templates('a Photo')
-    token_src = openaiclip.tokenize(txt).to(device)
-    I_c = transforms['stylenet'](img_c).to(device)  # content image as tensor with StyleNet transforms
-    I_clip = transforms['clip'](I_c).to(device)     # " " " " " CLIP transforms
-    I_vgg = transforms['vgg'](I_c).to(device)       # " " " " " vgg transforms
-
-    # get the CLIP and VGG feature maps (embeddings)
-    # TODO mean and norm inputs but why?
-    with torch.no_grad():
-        t_sty_features = clip.encode_text(token_t_sty).mean(dim=0, keepdim=True)
-        t_src_features = clip.encode_text(token_src).mean(dim=0, keepdim=True)
-        delta_T = t_sty_features - t_src_features    # direction of semantic text features
-        I_c_features = clip.encode_image(I_clip)     # clip feature maps from content image
-        vgg_features = vgg_feature_maps(I_vgg, vgg)  # vgg " " " " "
-
     # optimization parameters
     optimizer = optim.Adam(stylenet.parameters(), lr=5e-4)
     scheduler = StepLR(optimizer, step_size=100, gamma=0.5)
     lambdas = {'tv': 2e-3, 'patch': 9000, 'dir': 500, 'cont': 150}
 
+    # prepare the inputs for StyleNet, VGG and CLIP
+    token_t_sty = compose_text_with_templates(txt)
+    token_t_sty = openaiclip.tokenize(token_t_sty).to(device)
+
+    token_src = compose_text_with_templates('a Photo')
+    token_src = openaiclip.tokenize(token_src).to(device)
+
+    I_c = transforms['stylenet'](img_c).to(device)
+    I_clip = transforms['clip'](I_c).to(device)
+    I_vgg = transforms['vgg'](I_c).to(device)
+
+    # get the CLIP (unit norm) and VGG embeddings
+    with torch.no_grad():
+        # text condition CLIP-space feature vector
+        t_sty_features = clip.encode_text(token_t_sty).mean(dim=0, keepdim=True)
+        t_sty_features /= t_sty_features.norm(dim=-1, keepdim=True)
+        # source text ('a Photo') CLIP-space feature vector
+        t_src_features = clip.encode_text(token_src).mean(dim=0, keepdim=True)
+        t_src_features /= t_src_features.norm(dim=-1, keepdim=True)
+        # direction of semantic text features
+        delta_T = t_sty_features - t_src_features
+        delta_T /= delta_T.norm(dim=-1, keepdim=True)
+        # content image CLIP-space feature vector
+        I_c_features = clip.encode_image(I_clip)
+        I_c_features /= I_c_features.norm(dim=-1, keepdim=True)
+        # content image VGG-space feature vector
+        vgg_features = vgg_feature_maps(I_vgg, vgg)
+
 
     for i in range(200):
 
-        # TODO reproduce their result and add losses one by one
-        # directional CLIP loss
-        I_cs = stylenet(I_c)  # stylized content image
-        plt.imshow(adjust_contrast(I_cs, 1.5).squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
-        plt.show()
+        # TODO reproduce their result and add losses one by one in order
 
-        I_cs_features = clip.encode_image(transforms['clip'](I_cs))
-        delta_I = I_cs_features - I_c_features
-        loss_dir = lambdas['dir'] * (1 - torch.cosine_similarity(delta_I, delta_T))
+        # directional CLIP loss
+        # I_cs = stylenet(I_c)  # stylized content image
+        # I_cs.requires_grad_(True)
+        # plt.imshow(adjust_contrast(I_cs.clone(), 1.5).squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
+        # plt.show()
+
+        # I_cs_features = clip.encode_image(transforms['clip'](I_cs))
+        # I_cs_features /= I_cs_features.clone().norm(dim=-1, keepdim=True)
+        # delta_I = I_cs_features - I_c_features
+        # delta_I /= delta_I.clone().norm(dim=-1, keepdim=True)
+        # loss_dir = lambdas['dir'] * (1 - torch.cosine_similarity(delta_I, delta_T))
 
         # PatchCLIP loss
         # randomly crop n=64 patches and apply random geometrical (perspective sclae=0.5) augmentations and calculate clip loss
@@ -106,7 +119,7 @@ def stylize(img_c, txt, models, transforms, device):
         # print(f"Iteration {i}: total loss = {total_loss.item()}, "
         #       f"dir loss = {loss_dir.item()}, patch loss = {loss_patch.item()}, "
         #       f"content loss = {loss_content.item()}, TV loss = {loss_tv.item()}")
-        print(f'Iteration {i}, loss_dir: {loss_dir.item():.4f}')
+        # print(f'Iteration {i}, loss_dir: {loss_dir.item():.4f}')
         optimizer.zero_grad(set_to_none=True)
         loss_dir.backward()
         optimizer.step()
