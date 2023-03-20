@@ -10,6 +10,7 @@ Created on Wed Feb 22 21:24:31 2023
 """
 
 import os
+import time
 
 from PIL import Image
 from tqdm import tqdm
@@ -33,7 +34,7 @@ from loss import vgg_feature_maps, content_loss, patch_loss
 
 
 def stylize(img_c, txt, models, transforms, device):
-
+    start_time = time.time()
     plt.imshow(adjust_contrast(img_c, 1.5))
     plt.show()
 
@@ -88,8 +89,8 @@ def stylize(img_c, txt, models, transforms, device):
 
         # directional CLIP loss
         # I_cs = stylenet(I_c)  # stylized content image
-        # plt.imshow(adjust_contrast(I_cs.clone(), 1.5).squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
-        # plt.show()
+        plt.imshow(adjust_contrast(I_cs.clone(), 1.5).squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
+        plt.show()
 
         # I_cs_features = clip.encode_image(transforms['clip'](I_cs))
         # I_cs_features /= I_cs_features.clone().norm(dim=-1, keepdim=True)
@@ -111,8 +112,10 @@ def stylize(img_c, txt, models, transforms, device):
         loss_total.backward()
         optimizer.step()
         scheduler.step()
-    plt.imshow(adjust_contrast(I_cs.clone(), 1.5).squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
-    plt.show()
+    # plt.imshow(adjust_contrast(I_cs.clone(), 1.5).squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
+    # plt.show()
+    elapsed_time = time.time() - start_time
+    print(f'\n elapsed time: {elapsed_time:.2f}s')
     return I_cs
 
 
