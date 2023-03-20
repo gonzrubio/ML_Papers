@@ -15,9 +15,9 @@ from PIL import Image
 from tqdm import tqdm
 
 import torch
-import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.transforms as T
+import torch.nn.functional as F
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Dataset, DataLoader
 from torchvision.models import vgg19, VGG19_Weights
@@ -28,20 +28,7 @@ import matplotlib.pyplot as plt
 
 from StyleNet import StyleNet
 from templates import compose_text_with_templates
-
-
-def vgg_feature_maps(image, model):
-
-    layers = {'21': 'conv4_2', '31': 'conv5_2'}
-    features = {}
-    x = image
-    # x = x.unsqueeze(0)
-    for name, layer in model._modules.items():
-        x = layer(x)   
-        if name in layers:
-            features[layers[name]] = x
-    
-    return features
+from loss import vgg_feature_maps, content_loss
 
 
 def stylize(img_c, txt, models, transforms, device):
@@ -91,14 +78,14 @@ def stylize(img_c, txt, models, transforms, device):
         # style transfer output (stylized content image)
         I_cs = stylenet(I_c)
 
-        # maintain content information of input image
-        I_cs_vgg_features = vgg_feature_maps(transforms['vgg'](I_cs), vgg)
-
-        loss_content = F.mse_loss(vgg_features['conv4_2'],
-                                  I_cs_vgg_features['conv4_2'])
-        loss_content += F.mse_loss(vgg_features['conv5_2'],
-                                  I_cs_vgg_features['conv5_2'])
+        loss_content = content_loss(I_cs, vgg, transforms['vgg'], vgg_features)
         loss_content *= lambdas['cont']
+
+        # PatchCLIP loss
+        # randomly crop n=64 patches and apply random geometrical (perspective sclae=0.5) augmentations and calculate clip loss
+        # patch size 128
+        # threshold rejection tau=0.7 (nullify loss for patches above some threshold)
+        # loss_patch = lambda_p * ()
 
         # directional CLIP loss
         # I_cs = stylenet(I_c)  # stylized content image
@@ -110,12 +97,6 @@ def stylize(img_c, txt, models, transforms, device):
         # delta_I = I_cs_features - I_c_features
         # delta_I /= delta_I.clone().norm(dim=-1, keepdim=True)
         # loss_dir = lambdas['dir'] * (1 - torch.cosine_similarity(delta_I, delta_T))
-
-        # PatchCLIP loss
-        # randomly crop n=64 patches and apply random geometrical (perspective sclae=0.5) augmentations and calculate clip loss
-        # patch size 128
-        # threshold rejection tau=0.7 (nullify loss for patches above some threshold)
-        # loss_patch = lambda_p * ()
 
         # loss_tv = lamda_tv * ()
 
