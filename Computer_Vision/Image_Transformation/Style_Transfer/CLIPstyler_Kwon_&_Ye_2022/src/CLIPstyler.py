@@ -88,8 +88,12 @@ def stylize(img_c, txt, models, transforms, device):
 
 
     for i in range(200):
+        # style transfer output (stylized content image)
+        I_cs = stylenet(I_c)
 
-        # TODO reproduce their result and add losses one by one in order
+        # maintain content information of input image
+        I_cs_vgg_features = vgg_feature_maps(transforms['vgg'](I_cs), vgg)
+        loss_content = lambdas['cont'] * MSE(vgg_features, I_cs_vgg_features)
 
         # directional CLIP loss
         # I_cs = stylenet(I_c)  # stylized content image
@@ -108,8 +112,6 @@ def stylize(img_c, txt, models, transforms, device):
         # patch size 128
         # threshold rejection tau=0.7 (nullify loss for patches above some threshold)
         # loss_patch = lambda_p * ()
-
-        # loss_content = lamda_c * MSE(img_c_vgg, img_cs_vgg)
 
         # loss_tv = lamda_tv * ()
 
@@ -137,6 +139,10 @@ def get_models_transforms():
 
     clip, preprocess_clip = openaiclip.load('ViT-B/32', jit=False)
     clip.eval()
+
+    for vgg_param, clip_param in zip(vgg.parameters(), clip.parameters()):
+        vgg_param.requires_grad_(False)
+        clip_param.requires_grad_(False)
 
     models = {'vgg': vgg, 'clip': clip}
 
@@ -179,6 +185,7 @@ def main(cfg):
 
 
 if __name__ == '__main__':
+    # TODO reproduce their result and add losses one by one in order
     # TODO run end-to-end on a single image-text pair
     # TODO Look at official code
     # TODO your text_conditions/ (x7) and plots (add mexican gods to text)
