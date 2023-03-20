@@ -93,11 +93,15 @@ def stylize(img_c, txt, models, transforms, device):
 
         # maintain content information of input image
         I_cs_vgg_features = vgg_feature_maps(transforms['vgg'](I_cs), vgg)
-        loss_content = lambdas['cont'] * MSE(vgg_features, I_cs_vgg_features)
+
+        loss_content = F.mse_loss(vgg_features['conv4_2'],
+                                  I_cs_vgg_features['conv4_2'])
+        loss_content += F.mse_loss(vgg_features['conv5_2'],
+                                  I_cs_vgg_features['conv5_2'])
+        loss_content *= lambdas['cont']
 
         # directional CLIP loss
         # I_cs = stylenet(I_c)  # stylized content image
-        # I_cs.requires_grad_(True)
         # plt.imshow(adjust_contrast(I_cs.clone(), 1.5).squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
         # plt.show()
 
@@ -115,19 +119,20 @@ def stylize(img_c, txt, models, transforms, device):
 
         # loss_tv = lamda_tv * ()
 
-        # loss_total = loss_dir + loss_patch + loss_content + loss_tv
+        loss_total = loss_content  # loss_dir + loss_patch + loss_tv
 
         # Print the losses
         # print(f"Iteration {i}: total loss = {total_loss.item()}, "
         #       f"dir loss = {loss_dir.item()}, patch loss = {loss_patch.item()}, "
         #       f"content loss = {loss_content.item()}, TV loss = {loss_tv.item()}")
-        # print(f'Iteration {i}, loss_dir: {loss_dir.item():.4f}')
+        print(f'Iteration {i}, loss: {loss_total.item():.4f}')
         optimizer.zero_grad(set_to_none=True)
-        loss_dir.backward()
+        loss_total.backward()
         optimizer.step()
         scheduler.step()
-
-    return img_cs
+    plt.imshow(adjust_contrast(I_cs.clone(), 1.5).squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
+    plt.show()
+    return I_cs
 
 
 def get_models_transforms():
@@ -157,7 +162,11 @@ def get_models_transforms():
             T.Normalize(mean=[0.48145466, 0.4578275, 0.40821073],
                         std=[0.26862954, 0.26130258, 0.27577711])
             ]),
-        'vgg': preprocess_vgg,
+        'vgg': T.Compose([
+            T.Normalize(mean=[0.485, 0.456, 0.406],
+                        std=[0.229, 0.224, 0.225])
+            ])
+        # 'vgg': preprocess_vgg
         }
 
     return models, transforms
