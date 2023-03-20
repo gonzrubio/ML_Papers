@@ -22,13 +22,14 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Dataset, DataLoader
 from torchvision.models import vgg19, VGG19_Weights
 from torchvision.transforms.functional import adjust_contrast
+torch.backends.cudnn.benchmark = True
 
 import clip as openaiclip
 import matplotlib.pyplot as plt
 
 from StyleNet import StyleNet
 from templates import compose_text_with_templates
-from loss import vgg_feature_maps, content_loss
+from loss import vgg_feature_maps, content_loss, patch_loss
 
 
 def stylize(img_c, txt, models, transforms, device):
@@ -57,6 +58,7 @@ def stylize(img_c, txt, models, transforms, device):
     I_vgg = transforms['vgg'](I_c).to(device)
 
     # get the CLIP (unit norm) and VGG embeddings
+    n_patch = 64
     with torch.no_grad():
         # text condition CLIP-space feature vector
         t_sty_features = clip.encode_text(token_t_sty).mean(dim=0, keepdim=True)
@@ -67,12 +69,12 @@ def stylize(img_c, txt, models, transforms, device):
         # direction of semantic text features
         delta_T = t_sty_features - t_src_features
         delta_T /= delta_T.norm(dim=-1, keepdim=True)
+        delta_T_patch = delta_T.repeat(n_patch, 1)
         # content image CLIP-space feature vector
         I_c_features = clip.encode_image(I_clip)
         I_c_features /= I_c_features.norm(dim=-1, keepdim=True)
         # content image VGG-space feature vector
         vgg_features = vgg_feature_maps(I_vgg, vgg)
-
 
     for i in range(200):
         # style transfer output (stylized content image)
@@ -81,11 +83,8 @@ def stylize(img_c, txt, models, transforms, device):
         loss_content = content_loss(I_cs, vgg, transforms['vgg'], vgg_features)
         loss_content *= lambdas['cont']
 
-        # PatchCLIP loss
-        # randomly crop n=64 patches and apply random geometrical (perspective sclae=0.5) augmentations and calculate clip loss
-        # patch size 128
-        # threshold rejection tau=0.7 (nullify loss for patches above some threshold)
-        # loss_patch = lambda_p * ()
+        loss_patch = patch_loss(I_cs, clip, transforms, I_c_features, delta_T_patch, n_patch)
+        loss_patch = lambdas['patch'] * loss_patch
 
         # directional CLIP loss
         # I_cs = stylenet(I_c)  # stylized content image
@@ -100,12 +99,13 @@ def stylize(img_c, txt, models, transforms, device):
 
         # loss_tv = lamda_tv * ()
 
-        loss_total = loss_content  # loss_dir + loss_patch + loss_tv
+        loss_total = loss_content + loss_patch  # loss_dir + loss_tv
 
         # Print the losses
         # print(f"Iteration {i}: total loss = {total_loss.item()}, "
         #       f"dir loss = {loss_dir.item()}, patch loss = {loss_patch.item()}, "
         #       f"content loss = {loss_content.item()}, TV loss = {loss_tv.item()}")
+        # TODO print run time
         print(f'Iteration {i}, loss: {loss_total.item():.4f}')
         optimizer.zero_grad(set_to_none=True)
         loss_total.backward()
@@ -142,6 +142,10 @@ def get_models_transforms():
             lambda x: F.interpolate(x, size=224, mode='bicubic'),
             T.Normalize(mean=[0.48145466, 0.4578275, 0.40821073],
                         std=[0.26862954, 0.26130258, 0.27577711])
+            ]),
+        'patch': T.Compose([
+            T.RandomCrop(size=128),
+            T.RandomPerspective(fill=0, p=1, distortion_scale=0.5)
             ]),
         'vgg': T.Compose([
             T.Normalize(mean=[0.485, 0.456, 0.406],
