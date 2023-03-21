@@ -51,3 +51,26 @@ def patch_loss(I_cs, clip, transforms, I_c_features, delta_T_patch, n_patch):
     loss_temp[loss_temp < 0.7] = 0
 
     return loss_temp.mean()
+
+
+def clip_loss(I_cs, clip, transform, I_c_features, delta_T):
+    # get their CLIP-space feature vector
+    I_cs_features = clip.encode_image(transform(I_cs))
+    I_cs_features = I_cs_features / I_cs_features.norm(dim=-1, keepdim=True)
+
+    # compute the direction of semantic stylized patch features
+    delta_I = I_cs_features - I_c_features
+    delta_I = delta_I / delta_I.norm(dim=-1, keepdim=True)
+    loss_clip = 1 - torch.cosine_similarity(delta_I, delta_T, dim=1)
+
+    return loss_clip
+
+
+def total_variation_loss(image):
+    d1 = image[:, :, :, :-1] - image[:, :, :, 1:]
+    d2 = image[:, :, :-1, :] - image[:, :, 1:, :]
+    d3 = image[:, :, 1:, :-1] - image[:, :, :-1, 1:]
+    d4 = image[:, :, :-1, :-1] - image[:, :, 1:, 1:]
+    loss_var_l2 = torch.norm(d1) + torch.norm(d2) + torch.norm(d3) + torch.norm(d4)
+
+    return loss_var_l2

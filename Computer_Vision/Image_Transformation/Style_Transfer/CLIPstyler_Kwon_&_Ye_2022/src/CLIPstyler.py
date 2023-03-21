@@ -23,14 +23,14 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Dataset, DataLoader
 from torchvision.models import vgg19, VGG19_Weights
 from torchvision.transforms.functional import adjust_contrast
-torch.backends.cudnn.benchmark = True
+# torch.backends.cudnn.benchmark = True
 
 import clip as openaiclip
 import matplotlib.pyplot as plt
 
 from StyleNet import StyleNet
 from templates import compose_text_with_templates
-from loss import vgg_feature_maps, content_loss, patch_loss
+from loss import vgg_feature_maps, clip_loss, content_loss, patch_loss, total_variation_loss
 
 
 def stylize(img_c, txt, models, transforms, device):
@@ -81,41 +81,38 @@ def stylize(img_c, txt, models, transforms, device):
         # style transfer output (stylized content image)
         I_cs = stylenet(I_c)
 
+        # losses
         loss_content = content_loss(I_cs, vgg, transforms['vgg'], vgg_features)
         loss_content *= lambdas['cont']
 
         loss_patch = patch_loss(I_cs, clip, transforms, I_c_features, delta_T_patch, n_patch)
-        loss_patch = lambdas['patch'] * loss_patch
+        loss_patch *= lambdas['patch']
 
-        # directional CLIP loss
-        # I_cs = stylenet(I_c)  # stylized content image
-        plt.imshow(adjust_contrast(I_cs.clone(), 1.5).squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
-        plt.show()
+        loss_dir = clip_loss(I_cs, clip, transforms['clip'], I_c_features, delta_T)
+        loss_dir *= lambdas['dir']
 
-        # I_cs_features = clip.encode_image(transforms['clip'](I_cs))
-        # I_cs_features /= I_cs_features.clone().norm(dim=-1, keepdim=True)
-        # delta_I = I_cs_features - I_c_features
-        # delta_I /= delta_I.clone().norm(dim=-1, keepdim=True)
-        # loss_dir = lambdas['dir'] * (1 - torch.cosine_similarity(delta_I, delta_T))
+        loss_tv = lambdas['tv'] * total_variation_loss(I_cs)
 
-        # loss_tv = lamda_tv * ()
-
-        loss_total = loss_content + loss_patch  # loss_dir + loss_tv
+        loss_total = loss_content + loss_patch + loss_dir + loss_tv
 
         # Print the losses
+        # print(f'Iteration {i}, loss: {loss_total.item():.4f}')
         # print(f"Iteration {i}: total loss = {total_loss.item()}, "
         #       f"dir loss = {loss_dir.item()}, patch loss = {loss_patch.item()}, "
         #       f"content loss = {loss_content.item()}, TV loss = {loss_tv.item()}")
-        # TODO print run time
-        print(f'Iteration {i}, loss: {loss_total.item():.4f}')
+
+        # gradients and update
         optimizer.zero_grad(set_to_none=True)
         loss_total.backward()
         optimizer.step()
         scheduler.step()
-    # plt.imshow(adjust_contrast(I_cs.clone(), 1.5).squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
-    # plt.show()
-    elapsed_time = time.time() - start_time
-    print(f'\n elapsed time: {elapsed_time:.2f}s')
+
+    plt.imshow(adjust_contrast(I_cs.clone(), 1.5).squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
+    plt.show()
+
+    # elapsed_time = time.time() - start_time
+    # print(f'\n elapsed time: {elapsed_time:.2f}s')
+
     return I_cs
 
 
