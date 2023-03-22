@@ -59,7 +59,7 @@ def stylize(img_c, txt, models, transforms, device):
     I_vgg = transforms['vgg'](I_c).to(device)
 
     # get the CLIP (unit norm) and VGG embeddings
-    n_patch = 64
+    n_patch = 128
     with torch.no_grad():
         # text condition CLIP-space feature vector
         t_sty_features = clip.encode_text(token_t_sty).mean(dim=0, keepdim=True)
@@ -130,7 +130,7 @@ def get_models_transforms():
 
     transforms = {
         'stylenet': T.Compose([
-            T.Resize((512, 512)),
+            T.Resize((1024, 1024)),
             T.ToTensor(),
             lambda x: torch.unsqueeze(x, 0)
             ]),
@@ -140,7 +140,7 @@ def get_models_transforms():
                         std=[0.26862954, 0.26130258, 0.27577711])
             ]),
         'patch': T.Compose([
-            T.RandomCrop(size=128),
+            T.RandomCrop(size=256),
             T.RandomPerspective(fill=0, p=1, distortion_scale=0.5)
             ]),
         'vgg': T.Compose([
@@ -177,7 +177,8 @@ def main(cfg):
 
             img_cs = stylize(img_c, txt, models, transforms, device)
 
-            save_image(adjust_contrast(img_cs, 1.5),
+            img_cs_resized = T.Resize((512, 512), interpolation=InterpolationMode.BICUBIC)(img_cs)
+            save_image(adjust_contrast(img_cs_resized, 1.5),
                        os.path.join(output_dir, f'{img_name[:-4]}_{txt.replace(" ", "_")}_resized.png'),
                        nrow=1,
                        normalize=True)
