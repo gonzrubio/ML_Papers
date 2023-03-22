@@ -12,7 +12,7 @@ Created on Wed Feb 22 21:24:31 2023
 import os
 import time
 
-from PIL import Image
+from PIL import Image, ImageOps
 from tqdm import tqdm
 
 import torch
@@ -22,8 +22,10 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Dataset, DataLoader
 from torchvision.models import vgg19, VGG19_Weights
+from torchvision.transforms import InterpolationMode
 from torchvision.transforms.functional import adjust_contrast
-# torch.backends.cudnn.benchmark = True
+from torchvision.utils import save_image
+torch.backends.cudnn.benchmark = True
 
 import clip as openaiclip
 import matplotlib.pyplot as plt
@@ -34,9 +36,7 @@ from loss import vgg_feature_maps, clip_loss, content_loss, patch_loss, total_va
 
 
 def stylize(img_c, txt, models, transforms, device):
-    start_time = time.time()
-    plt.imshow(adjust_contrast(img_c, 1.5))
-    plt.show()
+    # start_time = time.time()
 
     clip = models['clip'].to(device)
     vgg = models['vgg'].to(device)
@@ -96,7 +96,6 @@ def stylize(img_c, txt, models, transforms, device):
         loss_total = loss_content + loss_patch + loss_dir + loss_tv
 
         # Print the losses
-        # print(f'Iteration {i}, loss: {loss_total.item():.4f}')
         # print(f"Iteration {i}: total loss = {total_loss.item()}, "
         #       f"dir loss = {loss_dir.item()}, patch loss = {loss_patch.item()}, "
         #       f"content loss = {loss_content.item()}, TV loss = {loss_tv.item()}")
@@ -106,9 +105,6 @@ def stylize(img_c, txt, models, transforms, device):
         loss_total.backward()
         optimizer.step()
         scheduler.step()
-
-    plt.imshow(adjust_contrast(I_cs.clone(), 1.5).squeeze(0).permute(1, 2, 0).cpu().detach().numpy())
-    plt.show()
 
     # elapsed_time = time.time() - start_time
     # print(f'\n elapsed time: {elapsed_time:.2f}s')
@@ -169,21 +165,32 @@ def main(cfg):
     conditions = get_conditions(cfg['text'])
     models, transforms = get_models_transforms()
 
-    for img_c in tqdm(os.listdir(cfg['content'])):
-        img_c = Image.open(os.path.join(cfg['content'], img_c))
+    output_dir = os.path.join('..', 'outputs')
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+
+    for img_name in tqdm(os.listdir(cfg['content'])):
+        img_c = Image.open(os.path.join(cfg['content'], img_name))
+        img_c = ImageOps.exif_transpose(img_c)
+
         for txt in tqdm(conditions, leave=False):
+
             img_cs = stylize(img_c, txt, models, transforms, device)
-            # save img_c_txt.png
-            # append to collage list
-    # plot all images as table (or two depending on size, fix num images per grid) like fig 1 (highest res possible output/)
+
+            save_image(adjust_contrast(img_cs, 1.5),
+                       os.path.join(output_dir, f'{img_name[:-4]}_{txt.replace(" ", "_")}_resized.png'),
+                       nrow=1,
+                       normalize=True)
+
+            img_cs = T.Resize((img_c.height, img_c.width), interpolation=InterpolationMode.BICUBIC)(img_cs)
+            save_image(adjust_contrast(img_cs, 1.5),
+                       os.path.join(output_dir, f'{img_name[:-4]}_{txt.replace(" ", "_")}_ogsize.png'),
+                       nrow=1,
+                       normalize=True)
 
 
 if __name__ == '__main__':
-    # TODO reproduce their result and add losses one by one in order
-    # TODO run end-to-end on a single image-text pair
-    # TODO Look at official code
-    # TODO your text_conditions/ (x7) and plots (add mexican gods to text)
-    # TODO read args and set defaults
+
     cfg= {
         'content': os.path.join(os.getcwd(), '..', 'data', 'content_images'),
         'text': os.path.join(os.getcwd(), '..', 'data', 'text_conditions.txt')
