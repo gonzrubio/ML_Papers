@@ -59,7 +59,7 @@ def stylize(img_c, txt, models, transforms, device):
     I_vgg = transforms['vgg'](I_c).to(device)
 
     # get the CLIP (unit norm) and VGG embeddings
-    n_patch = 128
+    n_patch = 64
     with torch.no_grad():
         # text condition CLIP-space feature vector
         t_sty_features = clip.encode_text(token_t_sty).mean(dim=0, keepdim=True)
