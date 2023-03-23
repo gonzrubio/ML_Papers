@@ -177,15 +177,9 @@ def main(cfg):
 
             img_cs = stylize(img_c, txt, models, transforms, device)
 
-            img_cs_resized = T.Resize((512, 512), interpolation=InterpolationMode.BICUBIC)(img_cs)
-            save_image(adjust_contrast(img_cs_resized, 1.5),
-                       os.path.join(output_dir, f'{img_name[:-4]}_{txt.replace(" ", "_")}_resized.png'),
-                       nrow=1,
-                       normalize=True)
-
             img_cs = T.Resize((img_c.height, img_c.width), interpolation=InterpolationMode.BICUBIC)(img_cs)
             save_image(adjust_contrast(img_cs, 1.5),
-                       os.path.join(output_dir, f'{img_name[:-4]}_{txt.replace(" ", "_")}_ogsize.png'),
+                       os.path.join(output_dir, f'{img_name[:-4]}_{txt.replace(" ", "_")}.png'),
                        nrow=1,
                        normalize=True)
 
