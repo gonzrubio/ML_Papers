@@ -9,6 +9,7 @@ Created on Wed Feb 22 21:24:31 2023
 @author: gonzalo
 """
 
+import argparse
 import os
 import time
 
@@ -25,7 +26,7 @@ from torchvision.models import vgg19, VGG19_Weights
 from torchvision.transforms import InterpolationMode
 from torchvision.transforms.functional import adjust_contrast
 from torchvision.utils import save_image
-torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.benchmark = False
 
 import clip as openaiclip
 import matplotlib.pyplot as plt
@@ -153,42 +154,70 @@ def get_models_transforms():
     return models, transforms
 
 
+def get_images(src):
+    if os.path.isfile(src):
+        return [src]
+    else:
+        return [os.path.join(src, f) for f in os.listdir(src) if f.endswith('.jpg') or f.endswith('.jpeg') or f.endswith('.png')]
+
+
+
 def get_conditions(src):
-    with open(src, 'r') as file:
-        conditions = [line.strip() for line in file.readlines()]
+    if os.path.isfile(src):
+        with open(src, 'r') as file:
+            conditions = [line.strip() for line in file.readlines()]
+    else:
+        conditions = [src]
     return conditions
 
 
+def save(image, txt, img_cs, output_dir):
+    filename = f'{os.path.splitext(os.path.basename(image))[0]}_{txt.replace(" ", "_")}'
+    save_image(adjust_contrast(img_cs, 1.5),
+               os.path.join(output_dir, f'{filename}.png'),
+               nrow=1,
+               normalize=True)
+    
+    
 def main(cfg):
     """Text-guided style transfer pipeline."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
+
     conditions = get_conditions(cfg['text'])
+    images = get_images(cfg['content'])
     models, transforms = get_models_transforms()
 
     output_dir = os.path.join('..', 'outputs')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
-    for img_name in tqdm(os.listdir(cfg['content'])):
-        img_c = Image.open(os.path.join(cfg['content'], img_name))
+    for image in tqdm(images):
+        img_c = Image.open(image)
         img_c = ImageOps.exif_transpose(img_c)
 
         for txt in tqdm(conditions, leave=False):
-
             img_cs = stylize(img_c, txt, models, transforms, device)
-
             img_cs = T.Resize((img_c.height, img_c.width), interpolation=InterpolationMode.BICUBIC)(img_cs)
-            save_image(adjust_contrast(img_cs, 1.5),
-                       os.path.join(output_dir, f'{img_name[:-4]}_{txt.replace(" ", "_")}.png'),
-                       nrow=1,
-                       normalize=True)
+            save(image, txt, img_cs, output_dir)
+
 
 
 if __name__ == '__main__':
 
-    cfg= {
-        'content': os.path.join(os.getcwd(), '..', 'data', 'content_images'),
-        'text': os.path.join(os.getcwd(), '..', 'data', 'text_conditions.txt')
-        }
+    parser = argparse.ArgumentParser(description='Run main function with specified arguments.')
+    parser.add_argument('--content',
+                        type=str,
+                        default=os.path.join(os.getcwd(), '..', 'data', 'content_images'),
+                        help='Path to content images folder or a single content image.')
+    parser.add_argument('--text',
+                        type=str,
+                        default=os.path.join(os.getcwd(), '..', 'data', 'text_conditions.txt'),
+                        help='Path to text conditions file or a text condition string.')
+    args = parser.parse_args()
+
+    cfg = {
+        'content': args.content,
+        'text': args.text
+    }
 
     main(cfg)
