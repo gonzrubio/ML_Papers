@@ -5,7 +5,7 @@
 ![All outputs](outputs/output_all.png)
 
 
-### Usage
+# Usage
 
 Default content images and text conditions located in `data/content_images/` and `data/text_conditions.txt`:
 ```
