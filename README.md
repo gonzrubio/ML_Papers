@@ -7,16 +7,7 @@ In this repository, I share my attempts at implementing from scratch and reprodu
 
 ## Content
 
-TODO
-
-## Usage
-
-Feel free to use this page as a learning resource. You can use the code as a starting point for your own projects or as a reference to understand the concepts discussed in the papers.
-
-## Contributions
-
-If you find any errors or have suggestions for improvements, please feel free to open an issue or submit a pull request. Your contributions are greatly appreciated!
-
-## Contact
-
-If you have any questions or would like to discuss the content on this page, please don't hesitate to reach out to me or connect on [LinkedIn](https://www.linkedin.com/in/gonzrubio/).
+* Computer Vision
+  * Image Transformation
+    * Style Transfer
+      * [CLIPstyler](https://github.com/gonzrubio/ML_Papers/tree/main/Computer_Vision/Image_Transformation/Style_Transfer/CLIPstyler_Kwon_%26_Ye_2022)
