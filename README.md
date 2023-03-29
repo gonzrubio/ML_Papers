@@ -1,4 +1,5 @@
 ![banner](https://github.com/gonzrubio/ML_Papers/blob/main/DALLE_A_%203D_render_of_a_phoenix_like_humming_bird_flying_over_an_epic_sunset.png)
+<img src="[image_url](https://github.com/gonzrubio/ML_Papers/blob/main/DALLE_A_%203D_render_of_a_phoenix_like_humming_bird_flying_over_an_epic_sunset.png)" alt="banner" width="800" height="200">
 
 # Overview
 
