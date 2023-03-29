@@ -9,4 +9,4 @@ In this repository, I share my attempts at implementing from scratch and reprodu
 * Computer Vision
   * Image Transformation
     * Style Transfer
-      * [CLIPstyler](https://github.com/gonzrubio/ML_Papers/tree/main/Computer_Vision/Image_Transformation/Style_Transfer/CLIPstyler_Kwon_%26_Ye_2022)
+      * [CLIPstyler: Image Style Transfer with a Single Text Condition](https://github.com/gonzrubio/ML_Papers/tree/main/Computer_Vision/Image_Transformation/Style_Transfer/CLIPstyler_Kwon_%26_Ye_2022)
