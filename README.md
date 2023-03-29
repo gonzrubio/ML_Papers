@@ -1,3 +1,5 @@
+![banner](ML_Papers/DALLE_A_ 3D_render_of_a_phoenix_like_humming_bird_flying_over_an_epic_sunset.png)
+
 # Overview
 
 In this repository, I share my attempts at implementing from scratch and reproducing the results of some of the research papers that I've read. Please note that, while there are likely bugs and inaccuracies, I hope that you find this repository to be a helpful learning resource.
