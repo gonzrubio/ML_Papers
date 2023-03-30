@@ -10,3 +10,6 @@ In this repository, I share my attempts at implementing from scratch and reprodu
   * Image Transformation
     * Style Transfer
       * [CLIPstyler: Image Style Transfer with a Single Text Condition](https://github.com/gonzrubio/ML_Papers/tree/main/Computer_Vision/Image_Transformation/Style_Transfer/CLIPstyler_Kwon_%26_Ye_2022)
+* Generative Networks
+  * Variational Auto-Encoders
+    * [Auto-Encoding Variational Bayes](https://github.com/gonzrubio/ML_Papers/tree/main/Generative_Networks/Variational_Auto-Encoders/AEVB_Kingma_%26_Welling_2013)
