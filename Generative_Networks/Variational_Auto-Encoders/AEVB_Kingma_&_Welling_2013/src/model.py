@@ -52,16 +52,15 @@ class VAE(nn.Module):
         # approximate posterior distribution parameters
         output_shape = x.shape
         mu, twicelogvar = self.encoder(x.view(x.shape[0], -1))
-        var = torch.exp(0.5 * twicelogvar)
 
         # reparameterization trick
         epsilon = torch.randn(x.shape[0], self.latent_size).to(x.device)
-        z = mu +  var * epsilon
+        z = mu +  torch.exp(0.5 * twicelogvar) * epsilon
 
         # reconstructed input
         x = self.decoder(z).view(output_shape)
 
-        return x, mu, var
+        return x, mu, twicelogvar
 
 
 if __name__ == '__main__':
