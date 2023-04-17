@@ -42,8 +42,6 @@ def load_frey_face_dataset(data_dir):
         print('Downloading Frey Face dataset...')
         urllib.request.urlretrieve(url, file_path)
         print('Download complete.')
-    else:
-        print('Frey Face dataset already downloaded.')
 
     data = sio.loadmat(file_path)
     data = data['ff'].T.reshape(-1, 1, 28, 20)
