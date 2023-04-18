@@ -45,7 +45,7 @@ def load_frey_face_dataset(data_dir):
 
     data = sio.loadmat(file_path)
     data = data['ff'].T.reshape(-1, 1, 28, 20)
-    data = torch.from_numpy(data).float()
+    data = torch.from_numpy(data).float()  / 255.0
 
     return data
 
