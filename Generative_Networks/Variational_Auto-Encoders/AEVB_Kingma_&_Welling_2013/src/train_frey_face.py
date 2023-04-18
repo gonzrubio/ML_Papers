@@ -22,26 +22,27 @@ def train(model, dataloader, optimizer, epochs, device):
     model.train()
     model = model.to(device)
 
-    train_loss = 0
-    for batch_idx, x in enumerate(dataloader):
-        x = x.to(device)
+    for epoch in range(epochs):
+        epoch_loss = 0
+        for batch_idx, x in enumerate(dataloader):
+            x = x.to(device)
 
-        x_hat, mu, twicelogvar = model(x)
-        BCE = F.binary_cross_entropy(x_hat, x, reduction= 'mean')
-        KLD = -0.5 * torch.sum(1 + twicelogvar - mu.pow(2) - twicelogvar.exp())
-        loss = BCE + KLD
-        train_loss += loss.item()
+            x_hat, mu, twicelogvar = model(x)
+            BCE = F.binary_cross_entropy(x_hat, x, reduction= 'mean')
+            KLD = - 0.5 * torch.sum(1 + twicelogvar - mu.pow(2) - twicelogvar.exp())
+            batch_loss = BCE + KLD
+            train_loss += loss.item()
 
-        optimizer.zero_grad(set_to_none=True)
-        loss.backward()
-        optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
+            batch_loss.backward()
+            optimizer.step()
 
-        # TODO print each loss in your style
-        if batch_idx % 100 == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader),
-                loss.item() / len(data)))
+            # TODO print each loss in your style
+            if batch_idx % 100 == 0:
+                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                    epoch, batch_idx * len(data), len(train_loader.dataset),
+                    100. * batch_idx / len(train_loader),
+                    loss.item() / len(data)))
 
     # TODO print total loss in your style
     print('====> Epoch: {} Average loss: {:.4f}'.format(
