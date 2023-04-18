@@ -11,12 +11,11 @@ import os
 
 import matplotlib.pyplot as plt
 import torch
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from dataset import load_frey_face_dataset
 from model import VAE
-
-
 
 
 def train(model, dataloader, optimizer, epochs, device):
@@ -24,12 +23,12 @@ def train(model, dataloader, optimizer, epochs, device):
     model = model.to(device)
 
     train_loss = 0
-    for batch_idx, (data, _) in enumerate(train_loader):
-        data = data.to(device)
+    for batch_idx, x in enumerate(dataloader):
+        x = x.to(device)
 
-        recon_batch, mu, logvar = model(data)
-        BCE = F.binary_cross_entropy(recon_x, x.view(-1, 784), reduction='sum')
-        KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        x_hat, mu, twicelogvar = model(x)
+        BCE = F.binary_cross_entropy(x_hat, x, reduction= 'mean')
+        KLD = -0.5 * torch.sum(1 + twicelogvar - mu.pow(2) - twicelogvar.exp())
         loss = BCE + KLD
         train_loss += loss.item()
 
@@ -70,13 +69,14 @@ def main(cfg):
 
     model = train(model, dataloader, optimizer, cfg['epochs'], device)
 
-    # TODO plot learned manifold (sample from unit square)
+    # TODO 10x10 plot learned manifold (sample from unit square)
     plt.imshow(data[0, 0, :, :], cmap='gray')
     plt.axis('off')
     plt.show()
 
 
 if __name__ == '__main__':
+    # TODO parse args, set definition, values and default
     cfg = {
         'batch_size': 100,
         'hidden_size': 200,

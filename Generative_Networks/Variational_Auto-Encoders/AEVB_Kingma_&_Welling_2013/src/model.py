@@ -50,7 +50,7 @@ class VAE(nn.Module):
 
     def forward(self, x):
         # approximate posterior distribution parameters
-        # output_shape = x.shape
+        output_shape = x.shape
         mu, twicelogvar = self.encoder(x.view(x.shape[0], -1))
 
         # reparameterization trick
@@ -58,8 +58,8 @@ class VAE(nn.Module):
         z = mu +  torch.exp(0.5 * twicelogvar) * epsilon
 
         # reconstructed input
-        # x = self.decoder(z).view(output_shape)
-        x = self.decoder(z)
+        x = self.decoder(z).view(output_shape)
+        # x = self.decoder(z)
 
         return x, mu, twicelogvar
 
