@@ -17,37 +17,45 @@ from torch.utils.data import DataLoader
 from dataset import load_frey_face_dataset
 from model import VAE
 
-
+import random
 def train(model, dataloader, optimizer, epochs, device):
     model.train()
-    model = model.to(device)
 
     for epoch in range(epochs):
-        epoch_loss = 0
         for batch_idx, x in enumerate(dataloader):
             x = x.to(device)
-
             x_hat, mu, twicelogvar = model(x)
-            BCE = F.binary_cross_entropy(x_hat, x, reduction= 'mean')
-            KLD = - 0.5 * torch.sum(1 + twicelogvar - mu.pow(2) - twicelogvar.exp())
-            batch_loss = BCE + KLD
-            train_loss += loss.item()
+
+            # BCE = F.binary_cross_entropy(x_hat, x, reduction= 'sum')
+            MSE = F.mse_loss(x, x_hat, reduction='sum')
+            KLD = torch.sum(1 + twicelogvar - mu.pow(2) - twicelogvar.exp(), dim=-1)
+            KLD = torch.sum(-0.5 * KLD)
+            batch_loss = MSE + KLD
 
             optimizer.zero_grad(set_to_none=True)
             batch_loss.backward()
             optimizer.step()
 
-            # TODO print each loss in your style
-            if batch_idx % 100 == 0:
-                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    epoch, batch_idx * len(data), len(train_loader.dataset),
-                    100. * batch_idx / len(train_loader),
-                    loss.item() / len(data)))
+            print(f'{epoch}.{batch_idx}',
+                  f'ELBO:{batch_loss.item(): .4f}, '
+                  f'MSE:{MSE.item(): .4f}, '
+                  f'KLD:{KLD.item(): .2e}')
 
-    # TODO print total loss in your style
-    print('====> Epoch: {} Average loss: {:.4f}'.format(
-          epoch, train_loss / len(train_loader.dataset)))
-
+        if epoch % 500 == 0:
+            n = random.randint(0, x_hat.size(0)-1)
+            plt.imshow(x[n, 0, :, :].detach().cpu(), cmap='gray')
+            plt.axis('off')
+            plt.show()            
+            plt.imshow(x_hat[n, 0, :, :].detach().cpu(), cmap='gray')
+            plt.axis('off')
+            plt.show()
+            n = random.randint(0, x_hat.size(0)-1)
+            plt.imshow(x[n, 0, :, :].detach().cpu(), cmap='gray')
+            plt.axis('off')
+            plt.show()    
+            plt.imshow(x_hat[n, 0, :, :].detach().cpu(), cmap='gray')
+            plt.axis('off')
+            plt.show()
 
 def main(cfg):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -58,22 +66,25 @@ def main(cfg):
         latent_size=cfg['latent_size']
         )
 
+    model = model.to(device)
+
     dataloader = DataLoader(
         load_frey_face_dataset(os.path.join('..', 'data')),
         batch_size=cfg['batch_size'],
         shuffle=True,
-        drop_last=False,
+        drop_last=True,
         pin_memory=True
         )
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=cfg['lr'])
+    optimizer = torch.optim.Adagrad(model.parameters(), lr=cfg['lr'])
 
     model = train(model, dataloader, optimizer, cfg['epochs'], device)
-
+    print(model)
+    # TODO save trained model and edit .gitignore
     # TODO 10x10 plot learned manifold (sample from unit square)
-    plt.imshow(data[0, 0, :, :], cmap='gray')
-    plt.axis('off')
-    plt.show()
+    # plt.imshow(data[0, 0, :, :], cmap='gray')
+    # plt.axis('off')
+    # plt.show()
 
 
 if __name__ == '__main__':
@@ -82,7 +93,7 @@ if __name__ == '__main__':
         'batch_size': 100,
         'hidden_size': 200,
         'latent_size': 2,
-        'lr': 1e-4,
-        'epochs': 100,
+        'lr': 4e-5,
+        'epochs': 35000
         }
     main(cfg)
