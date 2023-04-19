@@ -54,7 +54,7 @@ class VAE(nn.Module):
         mu, twicelogvar = self.encoder(x.view(x.shape[0], -1))
 
         # reparameterization trick
-        epsilon = torch.randn(x.shape[0], self.latent_size).to(x.device)
+        epsilon = torch.rand_like(twicelogvar).to(x.device)
         z = mu +  torch.exp(0.5 * twicelogvar) * epsilon
 
         # reconstructed input
