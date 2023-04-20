@@ -1,7 +1,8 @@
 # CLIPstyler: Image Style Transfer with a Single Text Condition
 [[Paper]](https://arxiv.org/abs/2112.00374) [[Official Implementation]](https://github.com/cyclomon/CLIPstyler)
 
-
+# Output
+Stylized content images given a query text condition
 ![All outputs](outputs/output_all.png)
 
 
