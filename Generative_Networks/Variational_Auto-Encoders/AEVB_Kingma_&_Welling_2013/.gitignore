@@ -1,6 +1,9 @@
 # Data (Frey face + MNIST)
 data/
 
+# Trained models
+models/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
