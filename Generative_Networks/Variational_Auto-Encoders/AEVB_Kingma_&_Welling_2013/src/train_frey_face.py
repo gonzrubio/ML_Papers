@@ -7,17 +7,18 @@ Created on Sun Apr 16 15:41:47 2023
 @author: gonzalo
 """
 
+import argparse
 import os
 
-import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from dataset import load_frey_face_dataset
 from model import VAE
+from visualize_manifold import plot_manifold
 
-import random
+
 def train(model, dataloader, optimizer, epochs, device):
     model.train()
 
@@ -40,23 +41,11 @@ def train(model, dataloader, optimizer, epochs, device):
                   f'BCE:{BCE.item(): .4f}, '
                   f'KLD:{KLD.item(): .2e}')
 
-        if epoch % 500 == 0:
-            n = random.randint(0, x_hat.size(0)-1)
-            plt.imshow(x[n, 0, :, :].detach().cpu(), cmap='gray')
-            plt.axis('off')
-            plt.show()            
-            plt.imshow(x_hat[n, 0, :, :].detach().cpu(), cmap='gray')
-            plt.axis('off')
-            plt.show()
-            n = random.randint(0, x_hat.size(0)-1)
-            plt.imshow(x[n, 0, :, :].detach().cpu(), cmap='gray')
-            plt.axis('off')
-            plt.show()    
-            plt.imshow(x_hat[n, 0, :, :].detach().cpu(), cmap='gray')
-            plt.axis('off')
-            plt.show()
+    return model
+
 
 def main(cfg):
+
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     model = VAE(
@@ -79,21 +68,31 @@ def main(cfg):
     # optimizer = torch.optim.Adagrad(model.parameters(), lr=cfg['lr'])
 
     model = train(model, dataloader, optimizer, cfg['epochs'], device)
-    print(model)
-    # TODO save trained model and edit .gitignore
-    # TODO 10x10 plot learned manifold (sample from unit square)
-    # plt.imshow(data[0, 0, :, :], cmap='gray')
-    # plt.axis('off')
-    # plt.show()
+
+    model_dir = os.path.join('..', 'models')
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+    torch.save(model, os.path.join(model_dir, 'frey.pt'))
+
+    plot_manifold(model, 'frey', device, r0=(-1.5, 1.5), r1=(-1.5, 1.5))
 
 
 if __name__ == '__main__':
-    # TODO parse args, set definition, values and default
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--batch_size', type=int, default=100, help='batch size for training')
+    parser.add_argument('--hidden_size', type=int, default=200, help='size of the hidden layer')
+    parser.add_argument('--latent_size', type=int, default=2, help='size of the latent space')
+    parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
+    parser.add_argument('--epochs', type=int, default=2000, help='number of epochs to train for')
+    args = parser.parse_args()
+
     cfg = {
-        'batch_size': 100,
-        'hidden_size': 200,
-        'latent_size': 2,
-        'lr': 3e-4,
-        'epochs': 10000
-        }
+        'batch_size': args.batch_size,
+        'hidden_size': args.hidden_size,
+        'latent_size': args.latent_size,
+        'lr': args.lr,
+        'epochs': args.epochs
+    }
+
     main(cfg)
