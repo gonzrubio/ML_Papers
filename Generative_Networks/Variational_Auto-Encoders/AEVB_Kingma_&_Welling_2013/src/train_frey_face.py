@@ -74,7 +74,7 @@ def main(cfg):
         os.makedirs(model_dir)
     torch.save(model, os.path.join(model_dir, 'frey.pt'))
 
-    plot_manifold(model, 'frey', device, r0=(-1.5, 1.5), r1=(-1.5, 1.5))
+    plot_manifold(model, 'frey', device, r0=(-1, 1), r1=(-1, 1))
 
 
 if __name__ == '__main__':
