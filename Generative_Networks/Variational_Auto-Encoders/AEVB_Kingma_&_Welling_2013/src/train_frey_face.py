@@ -36,10 +36,16 @@ def train(model, dataloader, optimizer, epochs, device):
             batch_loss.backward()
             optimizer.step()
 
-            print(f'{epoch}.{batch_idx}',
+        if epoch % 500 == 0:
+            print(f'Epoch {epoch}:',
                   f"(-'ve)ELBO:{batch_loss.item(): .4f}, "
                   f'BCE:{BCE.item(): .4f}, '
                   f'KLD:{KLD.item(): .2e}')
+
+    print(f'Epoch {epoch}:',
+          f"(-'ve)ELBO:{batch_loss.item(): .4f}, "
+          f'BCE:{BCE.item(): .4f}, '
+          f'KLD:{KLD.item(): .2e}')
 
     return model
 
