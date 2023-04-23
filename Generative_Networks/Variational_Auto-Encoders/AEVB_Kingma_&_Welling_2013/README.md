@@ -27,4 +27,4 @@ optional arguments:
   --lr                  learning rate
 ```
 
-The trained models and visualizations of the learned manifolds will be saved to `models/` `and outputs/`
+The trained models and visualizations of the learned manifolds will be saved to `models/` and to `outputs/`
