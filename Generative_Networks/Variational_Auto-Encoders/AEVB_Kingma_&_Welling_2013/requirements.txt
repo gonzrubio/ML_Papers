@@ -1,0 +1,5 @@
+python==3.10.10
+torch==2.0.0+cu118
+torchvision==0.15.0
+scipy==1.10.0
+matplotlib==3.7.1
