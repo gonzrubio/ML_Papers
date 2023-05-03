@@ -7,12 +7,14 @@ Created on Mon May  1 21:45:59 2023
 @author: gonzalo
 """
 
-import matplotlib.pyplot as plt
+import os
 import math
+
+import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_batch(images, num_cols=10):
+def plot_batch(images, num_cols=10, save=False):
     """Plot a batch of greyscale or RGB images."""
     batch_size, channels, height, width = images.shape
     num_rows = int(math.ceil(batch_size/num_cols))
@@ -35,7 +37,17 @@ def plot_batch(images, num_cols=10):
     # Hide any extra axes
     for i in np.arange(batch_size, num_rows * num_cols):
         axes[i].axis("off")
-        
-    plt.tight_layout()
-    plt.show()
 
+    output_dir = os.path.join('..', 'outputs')
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    plt.tight_layout()
+    if save:
+        if channels == 1:
+            plt.savefig(os.path.join(output_dir, 'mnist.png'))
+        else:
+            plt.savefig(os.path.join(output_dir, 'cifar10.png'))
+    else:
+        plt.show()
+    plt.close()
