@@ -16,6 +16,10 @@ class D(nn.Module):
 
         self.hidden0 = nn.Sequential(
             nn.Linear(input_size, 512),
+            # nn.Linear(input_size, 128),
+            nn.ReLU(),
+            nn.Dropout(p=p),
+            nn.Linear(512, 512),
             nn.ReLU(),
             nn.Dropout(p=p)
             )
@@ -23,15 +27,21 @@ class D(nn.Module):
         self.hidden1 = nn.Sequential(            
             nn.Linear(512, 256),
             nn.ReLU(),
+            nn.Dropout(p=p),
+            nn.Linear(256, 256),
+            nn.ReLU(),
             nn.Dropout(p=p)
             )
 
         self.hidden2 = nn.Sequential(
             nn.Linear(256, 128),
             nn.ReLU(),
+            nn.Dropout(p=p),
+            nn.Linear(128, 128),
+            nn.ReLU(),
             nn.Dropout(p=p)
             )
-        
+
         self.out = nn.Linear(128, 1)
 
     def forward(self, x):
@@ -48,21 +58,39 @@ class G(nn.Module):
 
         self.hidden0 = nn.Sequential(
             nn.Linear(input_size, 128),
-            nn.ReLU()
+            # nn.Linear(input_size, 256),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            # nn.Linear(128, 128),
+            # nn.ReLU()
             )
 
         self.hidden1 = nn.Sequential(            
             nn.Linear(128, 256),
-            nn.ReLU()
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            # nn.Linear(256, 256),
+            # nn.ReLU()
             )
 
         self.hidden2 = nn.Sequential(
             nn.Linear(256, 512),
-            nn.ReLU()
+            nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            # nn.Linear(512, 512),
+            # nn.ReLU()
             )
 
         self.out = nn.Sequential(
             nn.Linear(512, output_size),
+            # nn.Linear(256, output_size),
+            # nn.ReLU(),
+            # nn.Linear(output_size, output_size),
+            # nn.ReLU(),
+            # nn.Linear(output_size, output_size),
             nn.Tanh()  # -1, 1 since the real images are standardized
             )
 
