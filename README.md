@@ -13,3 +13,5 @@ In this repository, I share my attempts at implementing from scratch and reprodu
 * Generative Networks
   * Variational Auto-Encoders
     * [Auto-Encoding Variational Bayes](https://github.com/gonzrubio/ML_Papers/tree/main/Generative_Networks/Variational_Auto-Encoders/AEVB_Kingma_%26_Welling_2013)
+   * Unconditional GANs
+    * [Generative Adversarial Networks](https://github.com/gonzrubio/ML_Papers/tree/main/Generative_Networks/GANs/GANs_Goodfellow_et_al_2014)
